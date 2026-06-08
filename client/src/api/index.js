@@ -24,3 +24,8 @@ export const enrollments = {
   create: (payload) => http.post('/enrollments', payload),
   patch: (id, payload) => http.patch(`/enrollments/${id}`, payload),
 };
+
+export const stats = {
+  dashboard: () => http.get('/stats/dashboard'),
+  leaderboard: (params) => http.get('/stats/leaderboard', { params }),
+};

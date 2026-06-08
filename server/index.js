@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs';
 import authRoutes from './routes/auth.js';
 import intakeRoutes from './routes/intake.js';
 import enrollmentRoutes from './routes/enrollments.js';
+import statsRoutes from './routes/stats.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -33,7 +34,8 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api', intakeRoutes); // /api/intake, /api/public/config
 app.use('/api/enrollments', enrollmentRoutes);
-// (stats + admin routers are mounted in later phases)
+app.use('/api/stats', statsRoutes);
+// (admin routers are mounted in later phases)
 
 // Any unmatched /api/* route is a JSON 404, not the SPA fallback.
 app.use('/api', notFound);

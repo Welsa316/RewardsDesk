@@ -1,0 +1,78 @@
+import { Router } from 'express';
+import { query } from '../db/index.js';
+import { requireAuth } from '../middleware/auth.js';
+
+const router = Router();
+router.use(requireAuth);
+
+// GET /api/stats/dashboard — everything the dashboard needs in one round trip.
+// Goal progress counts 'enrolled' records by processed_at (when credited).
+router.get('/dashboard', async (req, res, next) => {
+  try {
+    const [settings, statusCounts, totals, trend, sources, recent] = await Promise.all([
+      query('SELECT monthly_goal, annual_goal FROM settings WHERE id = 1'),
+
+      query(
+        `SELECT status, count(*)::int AS count
+           FROM enrollments WHERE deleted_at IS NULL
+          GROUP BY status`,
+      ),
+
+      query(
+        `SELECT
+           count(*) FILTER (WHERE status = 'enrolled' AND processed_at >= date_trunc('month', now()))::int AS month_enrolled,
+           count(*) FILTER (WHERE status = 'enrolled' AND processed_at >= date_trunc('year', now()))::int  AS year_enrolled,
+           count(*) FILTER (WHERE status = 'enrolled' AND processed_at >= current_date)::int                AS today_enrolled,
+           count(*) FILTER (WHERE status = 'pending')::int                                                  AS pending,
+           count(*) FILTER (WHERE status = 'enrolled')::int                                                 AS total_enrolled,
+           count(*)::int                                                                                    AS total
+         FROM enrollments WHERE deleted_at IS NULL`,
+      ),
+
+      query(
+        `SELECT to_char(d, 'YYYY-MM-DD') AS date, count(e.id)::int AS count
+           FROM generate_series(current_date - INTERVAL '89 days', current_date, INTERVAL '1 day') d
+           LEFT JOIN enrollments e
+             ON e.deleted_at IS NULL AND e.status = 'enrolled' AND e.processed_at::date = d::date
+          GROUP BY d
+          ORDER BY d`,
+      ),
+
+      query(
+        `SELECT source, count(*)::int AS count
+           FROM enrollments WHERE deleted_at IS NULL
+          GROUP BY source
+          ORDER BY count DESC`,
+      ),
+
+      query(
+        `SELECT h.new_status, h.changed_at, u.name AS changed_by_name,
+                e.id AS enrollment_id, e.first_name, e.last_name
+           FROM status_history h
+           JOIN enrollments e ON e.id = h.enrollment_id
+           LEFT JOIN users u ON u.id = h.changed_by
+          ORDER BY h.changed_at DESC, h.id DESC
+          LIMIT 10`,
+      ),
+    ]);
+
+    const statusMap = {};
+    for (const r of statusCounts.rows) statusMap[r.status] = r.count;
+
+    res.json({
+      goals: {
+        monthly: settings.rows[0]?.monthly_goal ?? 0,
+        annual: settings.rows[0]?.annual_goal ?? 0,
+      },
+      totals: totals.rows[0],
+      status_counts: statusMap,
+      trend: trend.rows,
+      sources: sources.rows,
+      recent: recent.rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
