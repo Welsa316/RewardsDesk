@@ -132,13 +132,24 @@ node client/scripts/generate-icons.js
 
 ## Deploy (Railway)
 
+A `railway.json` is included — it sets the build command, the start command (which applies
+migrations first), and a `/api/health` healthcheck.
+
 1. Create a Railway project and attach a **PostgreSQL** plugin (provides `DATABASE_URL`).
 2. Set env vars: `JWT_SECRET`, `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
    `NODE_ENV=production` (and `COOKIE_DOMAIN` if you serve from a custom domain).
-3. **Build command:** `npm run build` (installs both workspaces and builds the client).
-4. **Start command:** `npm start` (Express serves `client/dist` and exposes `/api`).
-5. After the first deploy, run `npm run migrate` and `npm run seed` once (Railway shell or a
-   one-off command) to create the schema and the owner account.
+3. Connect this repo. Railway reads `railway.json`:
+   - **build:** `npm run build` (installs both workspaces, builds the client)
+   - **start:** `npm run migrate && npm start` (applies migrations, then Express serves
+     `client/dist` and exposes `/api`)
+   - **healthcheck:** `/api/health`
+4. After the first deploy, seed the owner account once (Railway shell or a one-off command):
+
+   ```bash
+   npm run seed
+   ```
+
+   Migrations run automatically on every deploy (they're idempotent); seeding is a one-time step.
 
 ## Privacy
 
