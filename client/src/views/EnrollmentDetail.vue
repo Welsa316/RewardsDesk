@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { enrollments as api } from '../api';
 import { useToastStore } from '../stores/toast';
+import { useAuthStore } from '../stores/auth';
 import StatusPill from '../components/StatusPill.vue';
 import CopyAllButton from '../components/CopyAllButton.vue';
 import { fullName, sourceLabel, formatDateTime, statusLabel, STATUS_LABELS } from '../utils/format';
@@ -10,6 +11,7 @@ import { fullName, sourceLabel, formatDateTime, statusLabel, STATUS_LABELS } fro
 const route = useRoute();
 const router = useRouter();
 const toast = useToastStore();
+const auth = useAuthStore();
 
 const enrollment = ref(null);
 const loading = ref(true);
@@ -55,6 +57,17 @@ async function save() {
     toast.error('Could not save changes.');
   } finally {
     saving.value = false;
+  }
+}
+
+async function remove() {
+  if (!window.confirm('Delete this record? It will be hidden from all lists and stats.')) return;
+  try {
+    await api.remove(route.params.id);
+    toast.success('Record deleted');
+    router.push({ name: 'enrollments' });
+  } catch {
+    toast.error('Could not delete this record.');
   }
 }
 
@@ -156,6 +169,12 @@ onMounted(load);
           </li>
         </ol>
         <p v-else class="text-sm text-slate-warm">No status changes yet.</p>
+      </div>
+
+      <div v-if="auth.isAdmin" class="pt-1 text-center">
+        <button class="text-sm font-medium text-red-600 hover:underline" @click="remove">
+          Delete this record
+        </button>
       </div>
     </div>
   </div>
