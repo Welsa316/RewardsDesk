@@ -210,6 +210,30 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
+// POST /api/enrollments/purge — admin-only. Soft-delete processed (non-pending)
+// records whose processed_at is older than the given number of days.
+router.post('/purge', requireAdmin, async (req, res, next) => {
+  try {
+    const days = parseInt(req.body?.days, 10);
+    if (!Number.isInteger(days) || days < 1) {
+      return res.status(400).json({ error: 'Provide a positive number of days.' });
+    }
+    const { rows } = await query(
+      `UPDATE enrollments
+          SET deleted_at = now(), updated_at = now()
+        WHERE deleted_at IS NULL
+          AND status <> 'pending'
+          AND processed_at IS NOT NULL
+          AND processed_at < now() - make_interval(days => $1)
+        RETURNING id`,
+      [days],
+    );
+    res.json({ purged: rows.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /api/enrollments/:id — admin-only soft delete.
 router.delete('/:id', requireAdmin, async (req, res, next) => {
   try {
