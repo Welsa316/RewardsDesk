@@ -26,6 +26,9 @@ const navItems = computed(() => {
       matches: ['enrollment-detail'],
     },
     { name: 'Leaderboard', routeName: 'leaderboard', to: { name: 'leaderboard' }, icon: 'chart' },
+    { name: 'Staff', routeName: 'staff', to: { name: 'staff' }, icon: 'users', admin: true },
+    { name: 'Settings', routeName: 'settings', to: { name: 'settings' }, icon: 'settings', admin: true },
+    { name: 'QR & links', routeName: 'qr', to: { name: 'qr' }, icon: 'qr', admin: true },
   ];
   return all.filter((i) => !i.admin || auth.isAdmin);
 });
@@ -36,6 +39,9 @@ const TITLES = {
   enrollments: 'Enrollments',
   'enrollment-detail': 'Enrollment',
   leaderboard: 'Leaderboard',
+  staff: 'Staff',
+  settings: 'Settings',
+  qr: 'QR & links',
 };
 const pageTitle = computed(() => TITLES[route.name] || 'RewardsDesk');
 

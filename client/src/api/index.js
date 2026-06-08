@@ -23,9 +23,22 @@ export const enrollments = {
   get: (id) => http.get(`/enrollments/${id}`),
   create: (payload) => http.post('/enrollments', payload),
   patch: (id, payload) => http.patch(`/enrollments/${id}`, payload),
+  remove: (id) => http.delete(`/enrollments/${id}`),
 };
 
 export const stats = {
   dashboard: () => http.get('/stats/dashboard'),
   leaderboard: (params) => http.get('/stats/leaderboard', { params }),
+};
+
+export const staff = {
+  list: () => http.get('/staff'),
+  create: (payload) => http.post('/staff', payload),
+  update: (id, payload) => http.patch(`/staff/${id}`, payload),
+  deactivate: (id) => http.delete(`/staff/${id}`),
+};
+
+export const settings = {
+  get: () => http.get('/settings'),
+  update: (payload) => http.patch('/settings', payload),
 };

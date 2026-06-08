@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr, isEmail, isPhone, asBool } from '../lib/validation.js';
 import { STATUSES, SORT_COLUMNS, buildListQuery } from '../lib/enrollmentFilters.js';
 
@@ -204,6 +205,22 @@ router.patch('/:id', async (req, res, next) => {
       processed_by_name = rows[0]?.name ?? null;
     }
     res.json({ ...updated, processed_by_name });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/enrollments/:id — admin-only soft delete.
+router.delete('/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { rows } = await query(
+      'UPDATE enrollments SET deleted_at = now(), updated_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
+      [id],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

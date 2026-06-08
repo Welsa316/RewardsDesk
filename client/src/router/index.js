@@ -21,6 +21,24 @@ const routes = [
         component: () => import('../views/EnrollmentDetail.vue'),
       },
       { path: 'leaderboard', name: 'leaderboard', component: () => import('../views/Leaderboard.vue') },
+      {
+        path: 'staff',
+        name: 'staff',
+        component: () => import('../views/Staff.vue'),
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'settings',
+        name: 'settings',
+        component: () => import('../views/Settings.vue'),
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'qr',
+        name: 'qr',
+        component: () => import('../views/QrCodes.vue'),
+        meta: { requiresAdmin: true },
+      },
     ],
   },
 
