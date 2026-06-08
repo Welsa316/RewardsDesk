@@ -23,7 +23,7 @@ const ICONS = {
 };
 
 function isActive(item) {
-  return route.name === item.routeName;
+  return route.name === item.routeName || (item.matches?.includes(route.name) ?? false);
 }
 </script>
 

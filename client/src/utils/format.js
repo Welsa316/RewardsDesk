@@ -11,6 +11,18 @@ export function sourceLabel(s) {
   return SOURCE_LABELS[s] || s || '—';
 }
 
+export const STATUS_LABELS = {
+  pending: 'Pending',
+  enrolled: 'Enrolled',
+  declined: 'Declined',
+  already_member: 'Already a member',
+  duplicate: 'Duplicate',
+};
+
+export function statusLabel(s) {
+  return STATUS_LABELS[s] || s || '—';
+}
+
 export function fullName(e) {
   return `${e?.first_name ?? ''} ${e?.last_name ?? ''}`.trim();
 }

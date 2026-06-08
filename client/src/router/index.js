@@ -14,6 +14,12 @@ const routes = [
     children: [
       { path: '', name: 'dashboard', component: () => import('../views/Dashboard.vue') },
       { path: 'queue', name: 'queue', component: () => import('../views/Queue.vue') },
+      { path: 'enrollments', name: 'enrollments', component: () => import('../views/Enrollments.vue') },
+      {
+        path: 'enrollments/:id',
+        name: 'enrollment-detail',
+        component: () => import('../views/EnrollmentDetail.vue'),
+      },
     ],
   },
 

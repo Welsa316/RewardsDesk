@@ -18,11 +18,23 @@ const navItems = computed(() => {
   const all = [
     { name: 'Dashboard', routeName: 'dashboard', to: { name: 'dashboard' }, icon: 'grid' },
     { name: 'Queue', routeName: 'queue', to: { name: 'queue' }, icon: 'inbox' },
+    {
+      name: 'Enrollments',
+      routeName: 'enrollments',
+      to: { name: 'enrollments' },
+      icon: 'list',
+      matches: ['enrollment-detail'],
+    },
   ];
   return all.filter((i) => !i.admin || auth.isAdmin);
 });
 
-const TITLES = { dashboard: 'Dashboard', queue: 'Queue' };
+const TITLES = {
+  dashboard: 'Dashboard',
+  queue: 'Queue',
+  enrollments: 'Enrollments',
+  'enrollment-detail': 'Enrollment',
+};
 const pageTitle = computed(() => TITLES[route.name] || 'RewardsDesk');
 
 async function logout() {
@@ -70,11 +82,7 @@ onMounted(() => {
     <div class="flex min-w-0 flex-1 flex-col">
       <TopBar :title="pageTitle" @toggle="drawerOpen = true" />
       <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <RouterView v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </RouterView>
+        <RouterView />
       </main>
     </div>
   </div>

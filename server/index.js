@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import intakeRoutes from './routes/intake.js';
 import enrollmentRoutes from './routes/enrollments.js';
 import statsRoutes from './routes/stats.js';
+import exportRoutes from './routes/export.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +36,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', intakeRoutes); // /api/intake, /api/public/config
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/export', exportRoutes);
 // (admin routers are mounted in later phases)
 
 // Any unmatched /api/* route is a JSON 404, not the SPA fallback.
