@@ -18,3 +18,56 @@
     @apply font-serif;
   }
 }
+
+@layer components {
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-warm;
+  }
+
+  /* text-base (16px) keeps iOS from zooming the viewport on focus. */
+  .input {
+    @apply w-full rounded-xl border border-sand bg-white px-4 py-3 text-base text-ink
+           shadow-sm outline-none transition placeholder:text-slate-warm/50
+           focus:border-terracotta focus:ring-2 focus:ring-terracotta/25;
+  }
+
+  .input-error {
+    @apply border-red-400 focus:border-red-400 focus:ring-red-200;
+  }
+
+  .field-error {
+    @apply mt-1 text-sm text-red-600;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base
+           font-medium transition focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply bg-terracotta text-white hover:bg-terracotta-600 focus-visible:ring-terracotta/40;
+  }
+
+  .btn-secondary {
+    @apply bg-ink text-white hover:bg-ink-600 focus-visible:ring-ink/40;
+  }
+
+  .btn-ghost {
+    @apply text-ink hover:bg-sand/60 focus-visible:ring-ink/30;
+  }
+
+  .card {
+    @apply rounded-2xl border border-sand bg-white shadow-sm;
+  }
+}
+
+/* Subtle route transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
