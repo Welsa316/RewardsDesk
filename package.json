@@ -1,0 +1,19 @@
+{
+  "name": "rewardsdesk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Guest-intake and rewards-enrollment tracking for a hotel front desk.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "migrate": "npm run migrate --prefix server",
+    "seed": "npm run seed --prefix server",
+    "build": "npm install --prefix server && npm install --prefix client --include=dev && npm run build --prefix client",
+    "start": "npm start --prefix server"
+  }
+}
