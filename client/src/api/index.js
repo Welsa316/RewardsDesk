@@ -17,3 +17,10 @@ export const intake = {
   submit: (payload) => http.post('/intake', payload),
   publicConfig: () => http.get('/public/config'),
 };
+
+export const enrollments = {
+  list: (params) => http.get('/enrollments', { params }),
+  get: (id) => http.get(`/enrollments/${id}`),
+  create: (payload) => http.post('/enrollments', payload),
+  patch: (id, payload) => http.patch(`/enrollments/${id}`, payload),
+};

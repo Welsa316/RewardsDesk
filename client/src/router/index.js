@@ -6,12 +6,15 @@ const routes = [
   { path: '/enroll', name: 'enroll', component: () => import('../views/Enroll.vue'), meta: { public: true } },
   { path: '/login', name: 'login', component: () => import('../views/Login.vue'), meta: { public: true } },
 
-  // ── Protected ── (the app shell + nested routes arrive in Phase 4)
+  // ── Protected (shared app shell) ──
   {
     path: '/',
-    name: 'dashboard',
-    component: () => import('../views/Dashboard.vue'),
+    component: () => import('../components/AppShell.vue'),
     meta: { requiresAuth: true },
+    children: [
+      { path: '', name: 'dashboard', component: () => import('../views/Dashboard.vue') },
+      { path: 'queue', name: 'queue', component: () => import('../views/Queue.vue') },
+    ],
   },
 
   { path: '/:pathMatch(.*)*', redirect: '/' },
