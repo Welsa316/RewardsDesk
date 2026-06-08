@@ -75,4 +75,55 @@ router.get('/dashboard', async (req, res, next) => {
   }
 });
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// GET /api/stats/leaderboard — per-staff processed/enrolled/conversion for a
+// date range (defaults to the current month). Every active staff/admin appears,
+// including those with zero, so the screen doubles as an accountability view.
+router.get('/leaderboard', async (req, res, next) => {
+  try {
+    const from = DATE_RE.test(req.query.from) ? req.query.from : null;
+    const to = DATE_RE.test(req.query.to) ? req.query.to : null;
+
+    const params = [];
+    let rangeStart = `date_trunc('month', now())`;
+    let rangeEnd = `now()`;
+    if (from) {
+      params.push(from);
+      rangeStart = `$${params.length}::timestamptz`;
+    }
+    if (to) {
+      params.push(to);
+      rangeEnd = `($${params.length}::date + INTERVAL '1 day')`;
+    }
+
+    const { rows } = await query(
+      `SELECT u.id, u.name,
+              count(e.id)::int AS processed,
+              count(e.id) FILTER (WHERE e.status = 'enrolled')::int AS enrolled
+         FROM users u
+         LEFT JOIN enrollments e
+           ON e.processed_by = u.id
+          AND e.deleted_at IS NULL
+          AND e.processed_at >= ${rangeStart}
+          AND e.processed_at < ${rangeEnd}
+        WHERE u.role IN ('admin', 'staff') AND u.active = TRUE
+        GROUP BY u.id, u.name
+        ORDER BY enrolled DESC, processed DESC, u.name ASC`,
+      params,
+    );
+
+    res.json({
+      from,
+      to,
+      rows: rows.map((r) => ({
+        ...r,
+        conversion: r.processed ? Math.round((r.enrolled / r.processed) * 100) : 0,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

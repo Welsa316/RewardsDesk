@@ -20,6 +20,7 @@ const routes = [
         name: 'enrollment-detail',
         component: () => import('../views/EnrollmentDetail.vue'),
       },
+      { path: 'leaderboard', name: 'leaderboard', component: () => import('../views/Leaderboard.vue') },
     ],
   },
 

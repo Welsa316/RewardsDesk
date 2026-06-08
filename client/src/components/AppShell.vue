@@ -25,6 +25,7 @@ const navItems = computed(() => {
       icon: 'list',
       matches: ['enrollment-detail'],
     },
+    { name: 'Leaderboard', routeName: 'leaderboard', to: { name: 'leaderboard' }, icon: 'chart' },
   ];
   return all.filter((i) => !i.admin || auth.isAdmin);
 });
@@ -34,6 +35,7 @@ const TITLES = {
   queue: 'Queue',
   enrollments: 'Enrollments',
   'enrollment-detail': 'Enrollment',
+  leaderboard: 'Leaderboard',
 };
 const pageTitle = computed(() => TITLES[route.name] || 'RewardsDesk');
 
