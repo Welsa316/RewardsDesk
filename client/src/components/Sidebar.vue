@@ -29,9 +29,9 @@ function isActive(item) {
 
 <template>
   <div class="flex h-full flex-col">
-    <div class="flex items-center gap-3 px-5 py-5">
+    <div class="px-5 py-5">
       <BrandMark size="sm" />
-      <p class="font-serif text-lg leading-none text-ink">RewardsDesk</p>
+      <p class="mt-2 text-xs font-medium uppercase tracking-wider text-slate-warm/60">Rewards Desk</p>
     </div>
 
     <nav class="flex-1 space-y-1 overflow-y-auto px-3">
