@@ -75,26 +75,29 @@ router.get('/dashboard', async (req, res, next) => {
   }
 });
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Accepts a date (YYYY-MM-DD) or a full ISO timestamp. The client sends precise
+// local-timezone boundary instants so comparisons don't depend on the DB timezone.
+const TS_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
 // GET /api/stats/leaderboard — per-staff processed/enrolled/conversion for a
-// date range (defaults to the current month). Every active staff/admin appears,
-// including those with zero, so the screen doubles as an accountability view.
+// date range. The client sends precise local-timezone boundary instants, so the
+// range matches the viewer's calendar regardless of the DB timezone. A missing
+// bound is unbounded (so no range = all-time). Every active staff/admin appears
+// (including those with zero) so the screen doubles as an accountability view.
 router.get('/leaderboard', async (req, res, next) => {
   try {
-    const from = DATE_RE.test(req.query.from) ? req.query.from : null;
-    const to = DATE_RE.test(req.query.to) ? req.query.to : null;
+    const from = TS_RE.test(req.query.from || '') ? req.query.from : null;
+    const to = TS_RE.test(req.query.to || '') ? req.query.to : null;
 
+    const joinConds = ['e.processed_by = u.id', 'e.deleted_at IS NULL'];
     const params = [];
-    let rangeStart = `date_trunc('month', now())`;
-    let rangeEnd = `now()`;
     if (from) {
       params.push(from);
-      rangeStart = `$${params.length}::timestamptz`;
+      joinConds.push(`e.processed_at >= $${params.length}::timestamptz`);
     }
     if (to) {
       params.push(to);
-      rangeEnd = `($${params.length}::date + INTERVAL '1 day')`;
+      joinConds.push(`e.processed_at < $${params.length}::timestamptz`);
     }
 
     const { rows } = await query(
@@ -102,11 +105,7 @@ router.get('/leaderboard', async (req, res, next) => {
               count(e.id)::int AS processed,
               count(e.id) FILTER (WHERE e.status = 'enrolled')::int AS enrolled
          FROM users u
-         LEFT JOIN enrollments e
-           ON e.processed_by = u.id
-          AND e.deleted_at IS NULL
-          AND e.processed_at >= ${rangeStart}
-          AND e.processed_at < ${rangeEnd}
+         LEFT JOIN enrollments e ON ${joinConds.join(' AND ')}
         WHERE u.role IN ('admin', 'staff') AND u.active = TRUE
         GROUP BY u.id, u.name
         ORDER BY enrolled DESC, processed DESC, u.name ASC`,

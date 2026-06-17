@@ -30,12 +30,24 @@ function preset(kind) {
   }
 }
 
+// Convert a local YYYY-MM-DD into exact instants so the range matches the
+// viewer's calendar regardless of the server's timezone. `to` is inclusive of
+// the selected day, so its upper bound is local midnight of the next day.
+function startInstant(dateStr) {
+  return new Date(`${dateStr}T00:00:00`).toISOString();
+}
+function endInstant(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString();
+}
+
 async function load() {
   loading.value = true;
   try {
     const params = {};
-    if (range.from) params.from = range.from;
-    if (range.to) params.to = range.to;
+    if (range.from) params.from = startInstant(range.from);
+    if (range.to) params.to = endInstant(range.to);
     const { data } = await api.leaderboard(params);
     rows.value = data.rows;
     loaded.value = true;
