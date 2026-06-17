@@ -140,16 +140,14 @@ migrations first), and a `/api/health` healthcheck.
    `NODE_ENV=production` (and `COOKIE_DOMAIN` if you serve from a custom domain).
 3. Connect this repo. Railway reads `railway.json`:
    - **build:** `npm run build` (installs both workspaces, builds the client)
-   - **start:** `npm run migrate && npm start` (applies migrations, then Express serves
-     `client/dist` and exposes `/api`)
+   - **start:** `npm run migrate && npm run seed && npm start` (applies migrations,
+     seeds/syncs the owner from the `ADMIN_*` vars, then Express serves `client/dist`
+     and exposes `/api`)
    - **healthcheck:** `/api/health`
-4. After the first deploy, seed the owner account once (Railway shell or a one-off command):
-
-   ```bash
-   npm run seed
-   ```
-
-   Migrations run automatically on every deploy (they're idempotent); seeding is a one-time step.
+4. Make sure `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` are set **before** the
+   first deploy — the start command seeds the owner account from them automatically
+   (both migrate and seed are idempotent, so they run safely on every deploy). To change
+   the owner login later, update those vars and redeploy.
 
 ## Privacy
 
