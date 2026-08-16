@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.js';
 import intakeRoutes from './routes/intake.js';
 import parkingPublicRoutes from './routes/parkingPublic.js';
 import parkingWebhookRoutes from './routes/parkingWebhook.js';
+import parkingRoutes from './routes/parking.js';
 import enrollmentRoutes from './routes/enrollments.js';
 import statsRoutes from './routes/stats.js';
 import exportRoutes from './routes/export.js';
@@ -70,6 +71,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api', intakeRoutes); // /api/intake, /api/public/config
 app.use('/api', parkingPublicRoutes); // /api/parking/checkout, /api/parking/session/:token, /api/public/parking-config
+app.use('/api/parking', parkingRoutes); // staff/admin: sessions, dashboard
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/export', exportRoutes);
