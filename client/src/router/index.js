@@ -5,6 +5,14 @@ const routes = [
   // ── Public (no nav chrome) ──
   { path: '/enroll', name: 'enroll', component: () => import('../views/Enroll.vue'), meta: { public: true } },
   { path: '/login', name: 'login', component: () => import('../views/Login.vue'), meta: { public: true } },
+  // Parking is white-label: meta.public also keeps the 401 interceptor away.
+  { path: '/park', name: 'park', component: () => import('../views/Park.vue'), meta: { public: true } },
+  {
+    path: '/park/s/:token',
+    name: 'park-status',
+    component: () => import('../views/ParkStatus.vue'),
+    meta: { public: true },
+  },
 
   // ── Protected (shared app shell) ──
   {

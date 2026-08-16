@@ -74,3 +74,10 @@ export const settings = {
   get: () => http.get('/settings'),
   update: (payload) => http.patch('/settings', payload),
 };
+
+export const parkingPublic = {
+  config: () => http.get('/public/parking-config'),
+  checkout: (payload) => http.post('/parking/checkout', payload),
+  status: (token) => http.get(`/parking/session/${token}`),
+  extend: (token, payload) => http.post(`/parking/session/${token}/extend`, payload),
+};

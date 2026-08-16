@@ -74,3 +74,37 @@ export function formatDateTime(iso) {
     minute: '2-digit',
   });
 }
+
+// ── Parking ────────────────────────────────────────────────
+
+const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+export function formatMoney(cents) {
+  return money.format((Number(cents) || 0) / 100);
+}
+
+export const PARKING_STATUS_LABELS = {
+  pending_payment: 'Awaiting payment',
+  active: 'Active',
+  expiring_soon: 'Expiring soon',
+  expired: 'Expired',
+  departed: 'Departed',
+  complimentary: 'Complimentary',
+  canceled: 'Canceled',
+};
+
+export function parkingStatusLabel(s) {
+  return PARKING_STATUS_LABELS[s] || s || '—';
+}
+
+// "2d 4h" / "3h 12m" / "45m" — for the guest countdown and staff lists.
+export function formatCountdown(ms) {
+  if (ms <= 0) return '0m';
+  const mins = Math.floor(ms / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const rem = mins % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${rem}m`;
+  return `${rem}m`;
+}

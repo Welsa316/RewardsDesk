@@ -31,6 +31,13 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
+            // Payment/status endpoints must never serve from cache — a stale
+            // "active" reading on the guest page is unacceptable. First match
+            // wins, so this must precede the generic /api rule.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/parking'),
+            handler: 'NetworkOnly',
+          },
+          {
             urlPattern: ({ url }) => url.pathname.startsWith('/api'),
             handler: 'NetworkFirst',
             options: {
