@@ -29,7 +29,9 @@ and a per-agent leaderboard.
   view (all fields, status-history timeline, editable status/notes), and export CSV.
 - **Leaderboard** — per-agent processed / enrolled / conversion% over a date range.
 - **Admin** — staff management (add, role, deactivate, reset password), settings (hotel
-  name, property code, goals, sources), and QR + prefilled-link tools.
+  name, property code, goals, sources, hotel time zone), QR + prefilled-link tools,
+  CSV export, and data retention (purge old processed records). Daily/monthly stats
+  are computed in the hotel's configured time zone.
 - **PWA** — installable, offline-aware (Workbox), branded manifest + icons.
 
 ## Stack
@@ -69,7 +71,7 @@ package.json      root scripts (install / dev / migrate / seed / build / start)
 
 ## Prerequisites
 
-- Node.js **20+**
+- Node.js **20–22** (production runs 22 via `.node-version`)
 - PostgreSQL **14+** (local install, Docker, or any managed Postgres)
 
 ## Local development

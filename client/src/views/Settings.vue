@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useSettingsStore } from '../stores/settings';
 import { useToastStore } from '../stores/toast';
 import { enrollments as enrollmentsApi } from '../api';
@@ -12,28 +12,55 @@ const form = reactive({
   property_code: '',
   monthly_goal: 0,
   annual_goal: 0,
+  timezone: 'America/Chicago',
   sources: [],
 });
 const newSource = ref('');
 const loading = ref(true);
+const loadError = ref('');
 const saving = ref(false);
 
 const retentionDays = ref(365);
 const purging = ref(false);
 
-onMounted(async () => {
-  await store.load();
-  if (store.data) {
-    Object.assign(form, {
-      hotel_name: store.data.hotel_name,
-      property_code: store.data.property_code,
-      monthly_goal: store.data.monthly_goal,
-      annual_goal: store.data.annual_goal,
-      sources: [...(store.data.sources || [])],
-    });
+// Common US hotel timezones; the select also keeps any other saved IANA value.
+const TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Phoenix',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+];
+const timezoneOptions = computed(() =>
+  TIMEZONES.includes(form.timezone) || !form.timezone
+    ? TIMEZONES
+    : [form.timezone, ...TIMEZONES],
+);
+
+async function init() {
+  loading.value = true;
+  loadError.value = '';
+  try {
+    await store.load();
+    if (store.data) {
+      Object.assign(form, {
+        hotel_name: store.data.hotel_name,
+        property_code: store.data.property_code,
+        monthly_goal: store.data.monthly_goal,
+        annual_goal: store.data.annual_goal,
+        timezone: store.data.timezone || 'America/Chicago',
+        sources: [...(store.data.sources || [])],
+      });
+    }
+  } catch {
+    loadError.value = 'Could not load settings.';
+  } finally {
+    loading.value = false;
   }
-  loading.value = false;
-});
+}
+onMounted(init);
 
 function addSource() {
   const s = newSource.value.trim().toLowerCase().replace(/\s+/g, '-');
@@ -53,11 +80,12 @@ async function save() {
       property_code: form.property_code,
       monthly_goal: Number(form.monthly_goal),
       annual_goal: Number(form.annual_goal),
+      timezone: form.timezone,
       sources: form.sources,
     });
     toast.success('Settings saved');
-  } catch {
-    toast.error('Could not save settings.');
+  } catch (err) {
+    toast.error(err?.response?.data?.error || 'Could not save settings.');
   } finally {
     saving.value = false;
   }
@@ -91,6 +119,11 @@ async function purgeOld() {
 
     <div v-if="loading" class="mt-6 h-96 animate-pulse rounded-2xl border border-sand bg-white/60" />
 
+    <div v-else-if="loadError" class="card mt-6 p-6 text-center">
+      <p class="text-slate-warm">{{ loadError }}</p>
+      <button class="btn btn-secondary mt-4" @click="init">Retry</button>
+    </div>
+
     <template v-else>
       <form class="mt-6 space-y-4" novalidate @submit.prevent="save">
         <div class="card space-y-4 p-5">
@@ -112,6 +145,15 @@ async function purgeOld() {
               <input id="annual_goal" v-model.number="form.annual_goal" type="number" min="0" inputmode="numeric" class="input" />
             </div>
           </div>
+          <div>
+            <label class="label" for="timezone">Hotel time zone</label>
+            <select id="timezone" v-model="form.timezone" class="input">
+              <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
+            </select>
+            <p class="mt-1 text-xs text-slate-warm">
+              Daily and monthly stats are counted on this clock.
+            </p>
+          </div>
         </div>
 
         <div class="card p-5">
@@ -129,7 +171,7 @@ async function purgeOld() {
               <button
                 type="button"
                 class="flex h-5 w-5 items-center justify-center rounded-full text-slate-warm hover:bg-ink/10 hover:text-ink"
-                aria-label="Remove"
+                :aria-label="`Remove source ${s}`"
                 @click="removeSource(s)"
               >
                 ✕
@@ -140,6 +182,7 @@ async function purgeOld() {
             <input
               v-model="newSource"
               class="input"
+              aria-label="Add a source"
               placeholder="Add a source…"
               @keydown.enter.prevent="addSource"
             />
@@ -168,7 +211,7 @@ async function purgeOld() {
           </div>
           <button
             type="button"
-            class="btn border border-sand bg-white text-red-600 hover:bg-red-50"
+            class="btn border border-sand bg-white text-red-700 hover:bg-red-50"
             :disabled="purging"
             @click="purgeOld"
           >

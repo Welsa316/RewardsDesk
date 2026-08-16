@@ -7,7 +7,17 @@ import { cleanStr } from '../lib/validation.js';
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
-const COLUMNS = 'id, hotel_name, property_code, annual_goal, monthly_goal, sources, updated_at';
+const COLUMNS =
+  'id, hotel_name, property_code, annual_goal, monthly_goal, sources, timezone, updated_at';
+
+function isValidTimezone(tz) {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -40,6 +50,14 @@ router.patch('/', async (req, res, next) => {
           sets.push(`${key} = $${params.length}`);
         }
       }
+    }
+    if (typeof b.timezone === 'string' && b.timezone.trim()) {
+      const tz = cleanStr(b.timezone, 64);
+      if (!isValidTimezone(tz)) {
+        return res.status(422).json({ error: 'Invalid timezone. Use an IANA name like America/Chicago.' });
+      }
+      params.push(tz);
+      sets.push(`timezone = $${params.length}`);
     }
     if (Array.isArray(b.sources)) {
       const sources = [...new Set(b.sources.map((s) => cleanStr(s, 40)).filter(Boolean))].slice(0, 30);

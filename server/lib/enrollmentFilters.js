@@ -11,8 +11,19 @@ export const SORT_COLUMNS = {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Express turns repeated query keys (?status=a&status=b) into arrays; use the
+// first value so filters stay well-typed strings.
+const first = (v) => (Array.isArray(v) ? v[0] : v);
+
 // Builds a parameterized WHERE clause shared by the list and CSV export.
-export function buildListQuery(q) {
+export function buildListQuery(raw) {
+  const q = {
+    status: first(raw.status),
+    source: first(raw.source),
+    q: first(raw.q),
+    from: first(raw.from),
+    to: first(raw.to),
+  };
   const where = ['e.deleted_at IS NULL'];
   const params = [];
 

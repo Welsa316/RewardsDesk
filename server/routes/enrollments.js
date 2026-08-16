@@ -15,8 +15,10 @@ router.get('/', async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
     const offset = (page - 1) * pageSize;
-    const sortKey = SORT_COLUMNS[req.query.sort] || 'e.created_at';
-    const dir = String(req.query.dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const sortParam = Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort;
+    const dirParam = Array.isArray(req.query.dir) ? req.query.dir[0] : req.query.dir;
+    const sortKey = SORT_COLUMNS[sortParam] || 'e.created_at';
+    const dir = String(dirParam).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     const { rows: countRows } = await query(
       `SELECT count(*)::int AS total FROM enrollments e WHERE ${whereSql}`,
@@ -178,12 +180,18 @@ router.patch('/:id', async (req, res, next) => {
 
     const updated = await withTransaction(async (client) => {
       if (statusChanged) {
+        // A record moved back to 'pending' (queue Undo) has no processor —
+        // clearing attribution keeps leaderboard processed/conversion honest.
+        const backToPending = newStatus === 'pending';
         const { rows } = await client.query(
           `UPDATE enrollments
-              SET status = $1, notes = $2, processed_by = $3, processed_at = now(), updated_at = now()
+              SET status = $1, notes = $2,
+                  processed_by = CASE WHEN $5 THEN NULL ELSE $3::int END,
+                  processed_at = CASE WHEN $5 THEN NULL ELSE now() END,
+                  updated_at = now()
             WHERE id = $4
             RETURNING *`,
-          [newStatus, notes, req.user.id, id],
+          [newStatus, notes, req.user.id, id, backToPending],
         );
         await client.query(
           `INSERT INTO status_history (enrollment_id, old_status, new_status, changed_by)
