@@ -9,6 +9,8 @@ import { existsSync } from 'node:fs';
 
 import authRoutes from './routes/auth.js';
 import intakeRoutes from './routes/intake.js';
+import parkingPublicRoutes from './routes/parkingPublic.js';
+import parkingWebhookRoutes from './routes/parkingWebhook.js';
 import enrollmentRoutes from './routes/enrollments.js';
 import statsRoutes from './routes/stats.js';
 import exportRoutes from './routes/export.js';
@@ -50,6 +52,10 @@ app.use(
   }),
 );
 
+// ⚠ The Stripe webhook MUST receive the raw, unparsed body for signature
+// verification — this mount must stay ABOVE the global express.json below.
+app.use('/api/parking/webhook', express.raw({ type: 'application/json' }), parkingWebhookRoutes);
+
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
@@ -63,6 +69,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api', intakeRoutes); // /api/intake, /api/public/config
+app.use('/api', parkingPublicRoutes); // /api/parking/checkout, /api/parking/session/:token, /api/public/parking-config
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/export', exportRoutes);
