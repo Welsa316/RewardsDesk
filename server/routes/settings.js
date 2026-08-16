@@ -8,7 +8,9 @@ const router = Router();
 router.use(requireAuth, requireAdmin);
 
 const COLUMNS =
-  'id, hotel_name, property_code, annual_goal, monthly_goal, sources, timezone, updated_at';
+  'id, hotel_name, property_code, annual_goal, monthly_goal, sources, timezone, ' +
+  'parking_brand_name, parking_capacity, parking_hourly_cents, parking_daily_cents, ' +
+  'parking_lots, parking_expiring_soon_minutes, updated_at';
 
 function isValidTimezone(tz) {
   try {
@@ -63,6 +65,29 @@ router.patch('/', async (req, res, next) => {
       const sources = [...new Set(b.sources.map((s) => cleanStr(s, 40)).filter(Boolean))].slice(0, 30);
       params.push(sources);
       sets.push(`sources = $${params.length}`);
+    }
+
+    // ── Parking config ──
+    if (typeof b.parking_brand_name === 'string') {
+      params.push(cleanStr(b.parking_brand_name, 100));
+      sets.push(`parking_brand_name = $${params.length}`);
+    }
+    for (const key of ['parking_capacity', 'parking_hourly_cents', 'parking_daily_cents', 'parking_expiring_soon_minutes']) {
+      if (b[key] !== undefined && b[key] !== null && b[key] !== '') {
+        const n = Number(b[key]);
+        if (!Number.isInteger(n) || n < 0) {
+          return res.status(422).json({ error: `${key} must be a non-negative integer.` });
+        }
+        params.push(n);
+        sets.push(`${key} = $${params.length}`);
+      }
+    }
+    if (Array.isArray(b.parking_lots)) {
+      const lots = [...new Set(
+        b.parking_lots.map((s) => cleanStr(s, 40).toLowerCase().replace(/\s+/g, '-')).filter(Boolean),
+      )].slice(0, 30);
+      params.push(lots);
+      sets.push(`parking_lots = $${params.length}`);
     }
 
     if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
