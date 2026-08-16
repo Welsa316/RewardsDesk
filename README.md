@@ -1,6 +1,11 @@
 # RewardsDesk
 
-A guest-intake and enrollment-tracking web app for a hotel front desk.
+Two products in one hotel app:
+
+1. **Rewards** — guest-intake and enrollment-tracking for the front desk (below).
+2. **Guest Parking** — a white-label, self-serve paid-parking product: guests scan a QR
+   on a parking sign, pay with Stripe, and track their time from a private link — while
+   staff manage the lot from the same admin dashboard. See **Guest Parking** below.
 
 RewardsDesk is an **intake + tracking layer that sits next to** the real Best Western
 Rewards enrollment — it does **not** enroll anyone itself. Guests submit their details
@@ -33,6 +38,53 @@ and a per-agent leaderboard.
   CSV export, and data retention (purge old processed records). Daily/monthly stats
   are computed in the hotel's configured time zone.
 - **PWA** — installable, offline-aware (Workbox), branded manifest + icons.
+
+## Guest Parking
+
+The parking product is deliberately **white-label**: the public pages carry only the
+admin-configured parking brand name (Parking Settings) — no rewards or hotel-app branding,
+a neutral tab title and favicon.
+
+**Guest flow** — scan a lot QR → `/park?src=<lot>` → name / phone / plate / room
+(optional) / email (optional, for the Stripe receipt) → pick hourly or daily duration
+(hourly totals are capped at the daily rate) → pay on Stripe's hosted checkout →
+land on a private status page `/park/s/<token>` with a live countdown, receipt link,
+and self-serve **Extend** (pays the difference, never bills dead time:
+`new paid-through = max(paid-through, now) + duration`).
+
+**Staff/admin** (same login as rewards, "Parking" section in the sidebar):
+
+- **Overview** — vehicles on lot vs capacity, leaving today, expired/overdue (deep-links
+  to the filtered list), revenue today, and a revenue panel (today/week/month, custom
+  range, avg transaction, paid vehicles, avg stay, hourly-vs-daily split, refunds).
+- **Sessions** — live list with search (plate/name/phone/confirmation #), status filters
+  (Active / Expiring soon / Expired / Departed / Comp), session detail with the payments
+  audit trail, notes (author + timestamp), staff extensions (cash/terminal/comp),
+  vehicle check-out with attribution, and staff-created sessions: **complimentary**
+  (reason + authorizer recorded) or **paid at desk** (cash / card terminal).
+- **Refunds** (admin) — full or partial per payment; Stripe charges refund through
+  Stripe, desk/cash charges are recorded-only; every refund carries actor + reason.
+- **Parking Settings** (admin) — brand name, hourly/daily rates, capacity,
+  "expiring soon" window, lot list. **QR & links** prints a white-label QR per lot.
+
+**Statuses** are derived at read time from `paid_through` (no cron): Active → Expiring
+soon (window configurable) → Expired; overlaid by Departed / Complimentary. An expired
+vehicle still occupies a space until checked out.
+
+**Payments** — hosted Stripe Checkout only. Card data never touches this server; we
+store only Stripe identifiers (checkout session, payment intent, refund ids) and the
+receipt URL. Amounts are always computed server-side from the configured rates; the
+webhook (`/api/parking/webhook`, signature-verified, idempotent) is the single source
+of payment truth.
+
+**Prefilled-link contract** (for a future SMS/messaging integration — no SMS is built
+into this app): `/park?src=<lot>&name=&phone=&plate=&room=&rate=hourly|daily&qty=N`.
+All params optional; the form prefills and the server re-validates everything.
+
+**Local Stripe testing** — set `STRIPE_SECRET_KEY` (test mode) and either run
+`stripe listen --forward-to localhost:3000/api/parking/webhook` (put its `whsec_` in
+`STRIPE_WEBHOOK_SECRET`) or use any tool that signs events with your configured secret.
+Pay with card `4242 4242 4242 4242`.
 
 ## Stack
 
@@ -121,6 +173,9 @@ package.json      root scripts (install / dev / migrate / seed / build / start)
 | `PORT`           | no              | Defaults to `3000`. Railway injects this.                     |
 | `CLIENT_ORIGIN`  | dev only        | Vite origin allowed by CORS (default `http://localhost:5173`).|
 | `COOKIE_DOMAIN`  | prod (optional) | Domain for the auth cookie.                                   |
+| `STRIPE_SECRET_KEY` | parking      | Stripe secret key (`sk_test_…` / `sk_live_…`). App boots without it; parking pay endpoints 503. |
+| `STRIPE_WEBHOOK_SECRET` | parking  | Signing secret for `/api/parking/webhook` (CLI and dashboard secrets differ). |
+| `PUBLIC_BASE_URL` | parking (prod) | Absolute origin for Stripe success/cancel URLs.               |
 
 ## PWA icons
 
@@ -153,7 +208,9 @@ migrations first), and a `/api/health` healthcheck.
 
 ## Privacy
 
-Only name, address, phone, and email are stored — never payment data or SSNs. Consent
+For rewards, only name, address, phone, and email are stored — never SSNs. For parking,
+guest contact/vehicle details are stored but **card data never touches this server** —
+Stripe processes every card and we keep only Stripe reference ids. Consent
 (boolean + timestamp) is recorded on every guest submission. Prefilled links carry PII and
 are only for per-guest sends (Canary/email); printed/wall QR codes stay generic (source
 only). The public intake endpoint is honeypot-protected, IP rate-limited, and validated
