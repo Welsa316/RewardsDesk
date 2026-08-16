@@ -7,6 +7,37 @@ export const http = axios.create({
   withCredentials: true,
 });
 
+// Global 401 handler: when the session cookie expires mid-use, clear auth
+// state and bounce to /login instead of leaving a broken authenticated UI.
+// Auth endpoints are excluded — they manage their own 401 semantics (and
+// fetchMe probing /auth/me on public pages must not trigger a redirect).
+// Dynamic imports dodge the api -> store/router -> api import cycle.
+http.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+    if (status === 401 && !url.includes('/auth/')) {
+      try {
+        const [{ useAuthStore }, routerModule] = await Promise.all([
+          import('../stores/auth'),
+          import('../router'),
+        ]);
+        const auth = useAuthStore();
+        auth.user = null;
+        const router = routerModule.default;
+        const current = router.currentRoute.value;
+        if (!current.meta.public && current.name !== 'login') {
+          router.push({ name: 'login', query: { redirect: current.fullPath } });
+        }
+      } catch {
+        // never let the redirect path mask the original error
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 export const auth = {
   login: (email, password) => http.post('/auth/login', { email, password }),
   logout: () => http.post('/auth/logout'),

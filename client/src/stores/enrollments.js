@@ -43,7 +43,13 @@ export const useEnrollmentsStore = defineStore('enrollments', {
         await api.patch(id, { status });
         return removed;
       } catch (err) {
-        if (removed) this.pending.splice(idx, 0, removed);
+        // Re-sort instead of splicing at the captured index — the array may
+        // have shifted (another process/undo/walk-up) while the PATCH was
+        // in flight.
+        if (removed) {
+          this.pending.push(removed);
+          this.pending.sort(byNewest);
+        }
         throw err;
       }
     },

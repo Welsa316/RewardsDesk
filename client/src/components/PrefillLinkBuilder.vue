@@ -3,19 +3,25 @@ import { reactive, ref, computed } from 'vue';
 import QRCode from 'qrcode';
 import { copyText } from '../utils/clipboard';
 import { sourceLabel } from '../utils/format';
+import { useToastStore } from '../stores/toast';
 
 const props = defineProps({
   baseUrl: { type: String, required: true },
   sources: { type: Array, default: () => [] },
 });
 
-const FIELDS = ['fname', 'lname', 'email', 'phone', 'address1', 'city', 'state', 'zip'];
+const toast = useToastStore();
+
+// Keys mirror Enroll.vue's PARAM_MAP exactly — every supported prefill param
+// has an input here so the two sides of the contract can't drift.
+const FIELDS = ['fname', 'lname', 'email', 'phone', 'address1', 'address2', 'city', 'state', 'zip', 'country'];
 const form = reactive({
-  fname: '', lname: '', email: '', phone: '', address1: '', city: '', state: '', zip: '',
+  fname: '', lname: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', country: '',
   src: props.sources.includes('canary') ? 'canary' : props.sources[0] || 'canary',
 });
 const copied = ref(false);
 const qr = ref('');
+const qrError = ref(false);
 
 const hasData = computed(() => FIELDS.some((k) => form[k]?.trim()));
 
@@ -31,10 +37,13 @@ async function copy() {
   if (await copyText(link.value)) {
     copied.value = true;
     setTimeout(() => (copied.value = false), 1200);
+  } else {
+    toast.error("Couldn't copy — select the link text and copy manually.");
   }
 }
 
 async function genQr() {
+  qrError.value = false;
   try {
     qr.value = await QRCode.toDataURL(link.value, {
       width: 320,
@@ -43,6 +52,8 @@ async function genQr() {
     });
   } catch {
     qr.value = '';
+    qrError.value = true;
+    toast.error("Couldn't generate the QR code.");
   }
 }
 </script>
@@ -67,11 +78,13 @@ async function genQr() {
     <input v-model="form.email" class="input mt-3" placeholder="Email" autocomplete="off" />
     <input v-model="form.phone" class="input mt-3" placeholder="Phone" autocomplete="off" />
     <input v-model="form.address1" class="input mt-3" placeholder="Street address" autocomplete="off" />
+    <input v-model="form.address2" class="input mt-3" placeholder="Apt, suite, etc. (optional)" autocomplete="off" />
     <div class="mt-3 grid grid-cols-3 gap-3">
       <input v-model="form.city" class="input" placeholder="City" autocomplete="off" />
       <input v-model="form.state" class="input" placeholder="State" autocomplete="off" />
       <input v-model="form.zip" class="input" placeholder="ZIP" autocomplete="off" />
     </div>
+    <input v-model="form.country" class="input mt-3" placeholder="Country code (optional, e.g. US)" autocomplete="off" />
     <div class="mt-3">
       <label class="label" for="prefill_src">Source tag</label>
       <select id="prefill_src" v-model="form.src" class="input">

@@ -3,18 +3,22 @@ import { ref, watchEffect } from 'vue';
 import QRCode from 'qrcode';
 import { copyText } from '../utils/clipboard';
 import { sourceLabel } from '../utils/format';
+import { useToastStore } from '../stores/toast';
 
 const props = defineProps({
   source: { type: String, required: true },
   baseUrl: { type: String, required: true },
 });
 
+const toast = useToastStore();
 const dataUrl = ref('');
+const qrError = ref(false);
 const link = ref('');
 const copied = ref(false);
 
 watchEffect(async () => {
   link.value = `${props.baseUrl}/enroll?src=${encodeURIComponent(props.source)}`;
+  qrError.value = false;
   try {
     dataUrl.value = await QRCode.toDataURL(link.value, {
       width: 320,
@@ -23,6 +27,7 @@ watchEffect(async () => {
     });
   } catch {
     dataUrl.value = '';
+    qrError.value = true;
   }
 });
 
@@ -30,6 +35,8 @@ async function copy() {
   if (await copyText(link.value)) {
     copied.value = true;
     setTimeout(() => (copied.value = false), 1200);
+  } else {
+    toast.error("Couldn't copy — select the link text and copy manually.");
   }
 }
 </script>
@@ -43,6 +50,9 @@ async function copy() {
       :alt="`QR code for ${sourceLabel(source)}`"
       class="mx-auto mt-3 h-40 w-40 rounded-lg border border-sand"
     />
+    <p v-else-if="qrError" class="mx-auto mt-3 flex h-40 w-40 items-center justify-center rounded-lg border border-sand text-sm text-slate-warm">
+      Couldn't generate QR
+    </p>
     <p class="mt-3 break-all text-xs text-slate-warm">{{ link }}</p>
     <div class="mt-3 flex gap-2">
       <button
@@ -52,7 +62,12 @@ async function copy() {
       >
         {{ copied ? 'Copied' : 'Copy link' }}
       </button>
-      <a :href="dataUrl" :download="`rewardsdesk-${source}.png`" class="btn btn-secondary flex-1 !py-2">
+      <a
+        v-if="dataUrl"
+        :href="dataUrl"
+        :download="`rewardsdesk-${source}.png`"
+        class="btn btn-secondary flex-1 !py-2"
+      >
         Download
       </a>
     </div>

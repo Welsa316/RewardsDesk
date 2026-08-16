@@ -2,8 +2,10 @@
 import { ref } from 'vue';
 import { copyText } from '../utils/clipboard';
 import { copyAllBlock } from '../utils/format';
+import { useToastStore } from '../stores/toast';
 
 const props = defineProps({ enrollment: { type: Object, required: true } });
+const toast = useToastStore();
 const copied = ref(false);
 
 async function copyAll() {
@@ -11,6 +13,8 @@ async function copyAll() {
   if (ok) {
     copied.value = true;
     setTimeout(() => (copied.value = false), 1500);
+  } else {
+    toast.error("Couldn't copy — use the per-field copy buttons or copy manually.");
   }
 }
 </script>

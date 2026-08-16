@@ -64,9 +64,9 @@ onMounted(() => stats.loadDashboard());
       </div>
 
       <div class="mt-4 grid gap-4 lg:grid-cols-2">
-        <!-- Source breakdown -->
+        <!-- Source breakdown (all submissions, not just enrolled) -->
         <div class="card p-5">
-          <h2 class="font-serif text-lg text-ink">By source</h2>
+          <h2 class="font-serif text-lg text-ink">Submissions by source</h2>
           <div v-if="d.sources.length" class="mt-4 space-y-3">
             <div v-for="s in d.sources" :key="s.source">
               <div class="mb-1 flex justify-between text-sm">
@@ -88,7 +88,7 @@ onMounted(() => stats.loadDashboard());
         <div class="card p-5">
           <h2 class="font-serif text-lg text-ink">Recent activity</h2>
           <ul v-if="d.recent.length" class="mt-4 space-y-3">
-            <li v-for="(r, i) in d.recent" :key="i" class="flex items-center gap-3 text-sm">
+            <li v-for="r in d.recent" :key="r.id" class="flex items-center gap-3 text-sm">
               <StatusPill :status="r.new_status" />
               <span class="min-w-0 flex-1 truncate text-ink">{{ r.first_name }} {{ r.last_name }}</span>
               <span class="shrink-0 text-xs text-slate-warm">

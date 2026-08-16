@@ -3,7 +3,9 @@ import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { stats as api } from '../api';
 
 const rows = ref([]);
-const loading = ref(false);
+// Starts true so the skeleton (not the empty state) shows until the first
+// debounced load completes.
+const loading = ref(true);
 const loaded = ref(false);
 const range = reactive({ from: '', to: '' });
 const activePreset = ref('month');
@@ -119,7 +121,7 @@ onMounted(() => {
     </div>
 
     <!-- Empty -->
-    <div v-else-if="rows.length === 0" class="card mt-4 p-10 text-center">
+    <div v-else-if="loaded && rows.length === 0" class="card mt-4 p-10 text-center">
       <p class="text-slate-warm">No staff to show yet.</p>
     </div>
 
@@ -140,7 +142,7 @@ onMounted(() => {
               :style="{ width: (r.enrolled / maxEnrolled) * 100 + '%' }"
             />
           </div>
-          <p class="mt-1 text-xs text-slate-warm/70">{{ r.processed }} processed</p>
+          <p class="mt-1 text-xs text-slate-warm">{{ r.processed }} processed</p>
         </div>
       </div>
     </div>

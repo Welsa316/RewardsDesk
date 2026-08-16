@@ -6,16 +6,22 @@ import PrefillLinkBuilder from '../components/PrefillLinkBuilder.vue';
 
 const sources = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 const baseUrl = window.location.origin;
 
-onMounted(async () => {
+async function load() {
+  loading.value = true;
+  loadError.value = '';
   try {
     const { data } = await api.get();
     sources.value = data.sources || [];
+  } catch {
+    loadError.value = 'Could not load sources.';
   } finally {
     loading.value = false;
   }
-});
+}
+onMounted(load);
 </script>
 
 <template>
@@ -32,6 +38,10 @@ onMounted(async () => {
       </p>
       <div v-if="loading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div v-for="i in 3" :key="i" class="h-72 animate-pulse rounded-2xl border border-sand bg-white/60" />
+      </div>
+      <div v-else-if="loadError" class="card p-6 text-center">
+        <p class="text-slate-warm">{{ loadError }}</p>
+        <button class="btn btn-secondary mt-4" @click="load">Retry</button>
       </div>
       <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <QrCard v-for="s in sources" :key="s" :source="s" :base-url="baseUrl" />
