@@ -2,6 +2,8 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { enrollments as api } from '../api';
+import { useAuthStore } from '../stores/auth';
+import { useToastStore } from '../stores/toast';
 import StatusPill from '../components/StatusPill.vue';
 import {
   fullName,
@@ -13,6 +15,11 @@ import {
 } from '../utils/format';
 
 const router = useRouter();
+const auth = useAuthStore();
+const toast = useToastStore();
+
+// Mirrors the server-side export cap; over this we prompt for narrower filters.
+const EXPORT_CAP = 10000;
 
 const rows = ref([]);
 const total = ref(0);
@@ -41,6 +48,8 @@ async function load() {
     const { data } = await api.list(params);
     rows.value = data.data;
     total.value = data.total;
+  } catch {
+    toast.error('Could not load enrollments.');
   } finally {
     loading.value = false;
   }
@@ -69,6 +78,12 @@ function open(id) {
 }
 
 function exportCsv() {
+  if (total.value > EXPORT_CAP) {
+    toast.error(
+      `This export matches ${total.value} records — over the ${EXPORT_CAP} limit. Narrow the filters (e.g. a date range) and export in batches.`,
+    );
+    return;
+  }
   const params = new URLSearchParams();
   for (const k of ['q', 'status', 'source', 'from', 'to']) if (filters[k]) params.set(k, filters[k]);
   const qs = params.toString();
@@ -82,7 +97,7 @@ onMounted(load);
   <div class="mx-auto max-w-5xl">
     <div class="mb-5 flex items-center justify-between gap-3">
       <h1 class="font-serif text-2xl text-ink">Enrollments</h1>
-      <button class="btn btn-secondary !py-2" @click="exportCsv">
+      <button v-if="auth.isAdmin" class="btn btn-secondary !py-2" aria-label="Export CSV" @click="exportCsv">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" />
         </svg>
@@ -91,7 +106,12 @@ onMounted(load);
     </div>
 
     <div class="card mb-4 space-y-3 p-4">
-      <input v-model="filters.q" class="input" placeholder="Search name, email, or phone…" />
+      <input
+        v-model="filters.q"
+        class="input"
+        aria-label="Search enrollments"
+        placeholder="Search name, email, or phone…"
+      />
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <select v-model="filters.status" class="input">
           <option v-for="o in STATUS_OPTIONS" :key="o.v" :value="o.v">{{ o.label }}</option>

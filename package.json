@@ -5,7 +5,7 @@
   "description": "Guest-intake and rewards-enrollment tracking for a hotel front desk.",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=20 <23"
   },
   "scripts": {
     "install:all": "npm install --prefix server && npm install --prefix client",

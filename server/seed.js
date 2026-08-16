@@ -18,6 +18,21 @@ async function seed() {
     return;
   }
 
+  // In production, refuse to (re)apply a known-default or weak owner password —
+  // the repo is public, so example values are public too. The existing admin
+  // row is left untouched; set a strong ADMIN_PASSWORD and redeploy.
+  const KNOWN_DEFAULTS = new Set(['change-me-now', 'changeme', 'password', 'admin123']);
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (KNOWN_DEFAULTS.has(password) || /replace[_-]?me/i.test(password) || password.length < 10)
+  ) {
+    console.warn(
+      '  ⚠ Skipping admin seed — ADMIN_PASSWORD is a known default or under 10 characters. ' +
+        'Set a strong ADMIN_PASSWORD in the environment and redeploy.',
+    );
+    return;
+  }
+
   // Upsert the admin. Re-running resets the admin to the current env values,
   // keeping the owner login in sync with the deploy config.
   const hash = await bcrypt.hash(password, 12);

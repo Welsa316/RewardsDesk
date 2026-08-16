@@ -25,6 +25,8 @@ export function cookieOptions() {
   const opts = {
     httpOnly: true,
     secure: isProd,
+    // CSRF stance: sameSite=lax + every mutation being non-GET covers modern
+    // browsers; revisit (CSRF token or sameSite=strict) if that ever changes.
     sameSite: 'lax',
     maxAge: MAX_AGE_MS,
     path: '/',

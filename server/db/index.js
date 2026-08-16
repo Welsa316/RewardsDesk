@@ -8,13 +8,15 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Default to no TLS (works for local dev and Railway's internal network).
-// Opt in via PGSSL=true or an `sslmode=require` in the connection string,
-// which is what most external managed Postgres providers need.
+// Opt in via PGSSL=true or an `sslmode=require` in the connection string.
+// When TLS is on, certificates are VERIFIED by default; set
+// PGSSL_NO_VERIFY=true only for providers with self-signed chains.
 function sslConfig() {
   if (process.env.PGSSL === 'false') return false;
-  if (process.env.PGSSL === 'true') return { rejectUnauthorized: false };
-  if (/sslmode=require/i.test(process.env.DATABASE_URL)) return { rejectUnauthorized: false };
-  return false;
+  const wantsSsl =
+    process.env.PGSSL === 'true' || /sslmode=require/i.test(process.env.DATABASE_URL);
+  if (!wantsSsl) return false;
+  return process.env.PGSSL_NO_VERIFY === 'true' ? { rejectUnauthorized: false } : true;
 }
 
 export const pool = new Pool({

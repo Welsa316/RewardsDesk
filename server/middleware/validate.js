@@ -56,6 +56,8 @@ export async function validateIntake(req, res, next) {
       postal_code: cleanStr(b.postal_code, 16) || null,
       country: cleanStr(b.country, 60) || 'US',
       source,
+      // Best-effort analytics tag: client-reported, not proof the link carried
+      // data. Nothing security-relevant may ever depend on it.
       prefilled: asBool(b.prefilled),
     };
     next();

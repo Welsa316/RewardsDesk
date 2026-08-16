@@ -1,5 +1,6 @@
 import './env.js';
 import express from 'express';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +23,32 @@ const app = express();
 
 // Trust Railway's proxy so req.ip (used by rate limiting) is the real client.
 if (isProd) app.set('trust proxy', 1);
+
+if (isProd && (process.env.JWT_SECRET || '').length < 32) {
+  console.warn(
+    '⚠ JWT_SECRET is short or unset. Use a long random value (e.g. `openssl rand -base64 48`).',
+  );
+}
+
+// Security headers. CSP only in production (dev pages come from Vite):
+// self-hosted scripts, Google Fonts styles/fonts, data: images (QR codes).
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: isProd
+      ? {
+          useDefaults: true,
+          directives: {
+            'script-src': ["'self'"],
+            'style-src': ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
+            'font-src': ["'self'", 'https://fonts.gstatic.com'],
+            'img-src': ["'self'", 'data:'],
+            'connect-src': ["'self'"],
+          },
+        }
+      : false,
+  }),
+);
 
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
