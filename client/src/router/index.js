@@ -30,6 +30,11 @@ const routes = [
       },
       { path: 'leaderboard', name: 'leaderboard', component: () => import('../views/Leaderboard.vue') },
       {
+        path: 'parking/sessions',
+        name: 'parking-sessions',
+        component: () => import('../views/ParkingSessions.vue'),
+      },
+      {
         path: 'staff',
         name: 'staff',
         component: () => import('../views/Staff.vue'),

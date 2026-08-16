@@ -81,3 +81,15 @@ export const parkingPublic = {
   status: (token) => http.get(`/parking/session/${token}`),
   extend: (token, payload) => http.post(`/parking/session/${token}/extend`, payload),
 };
+
+export const parking = {
+  sessions: (params) => http.get('/parking/sessions', { params }),
+  session: (id) => http.get(`/parking/sessions/${id}`),
+  create: (payload) => http.post('/parking/sessions', payload),
+  depart: (id) => http.post(`/parking/sessions/${id}/depart`),
+  extend: (id, payload) => http.post(`/parking/sessions/${id}/extend`, payload),
+  addNote: (id, body) => http.post(`/parking/sessions/${id}/notes`, { body }),
+  dashboard: () => http.get('/parking/dashboard'),
+  revenue: (params) => http.get('/parking/revenue', { params }),
+  refund: (id, payload) => http.post(`/parking/sessions/${id}/refund`, payload),
+};

@@ -14,11 +14,13 @@ const router = useRouter();
 
 const drawerOpen = ref(false);
 
-// Nav items grow as later phases land; admin-only items are filtered out for staff.
+// Two product areas share the shell: Rewards (original) and Parking.
+// Heading rows are non-link section labels; badge shows a live count.
 const navItems = computed(() => {
   const all = [
+    { heading: true, name: 'Rewards' },
     { name: 'Dashboard', routeName: 'dashboard', to: { name: 'dashboard' }, icon: 'grid' },
-    { name: 'Queue', routeName: 'queue', to: { name: 'queue' }, icon: 'inbox' },
+    { name: 'Queue', routeName: 'queue', to: { name: 'queue' }, icon: 'inbox', badge: enrollments.pendingCount },
     {
       name: 'Enrollments',
       routeName: 'enrollments',
@@ -27,6 +29,9 @@ const navItems = computed(() => {
       matches: ['enrollment-detail'],
     },
     { name: 'Leaderboard', routeName: 'leaderboard', to: { name: 'leaderboard' }, icon: 'chart' },
+    { heading: true, name: 'Parking' },
+    { name: 'Sessions', routeName: 'parking-sessions', to: { name: 'parking-sessions' }, icon: 'car' },
+    { heading: true, name: 'Admin', admin: true },
     { name: 'Staff', routeName: 'staff', to: { name: 'staff' }, icon: 'users', admin: true },
     { name: 'Settings', routeName: 'settings', to: { name: 'settings' }, icon: 'settings', admin: true },
     { name: 'QR & links', routeName: 'qr', to: { name: 'qr' }, icon: 'qr', admin: true },
@@ -43,6 +48,9 @@ const TITLES = {
   staff: 'Staff',
   settings: 'Settings',
   qr: 'QR & links',
+  parking: 'Parking',
+  'parking-sessions': 'Parking sessions',
+  'parking-settings': 'Parking settings',
 };
 const pageTitle = computed(() => TITLES[route.name] || 'RewardsDesk');
 
@@ -92,7 +100,6 @@ onMounted(() => {
         <Sidebar
           :items="navItems"
           :user="auth.user"
-          :pending-count="enrollments.pendingCount"
           @logout="logout"
         />
       </div>
@@ -114,8 +121,7 @@ onMounted(() => {
           <Sidebar
             :items="navItems"
             :user="auth.user"
-            :pending-count="enrollments.pendingCount"
-            @navigate="drawerOpen = false"
+              @navigate="drawerOpen = false"
             @logout="logout"
           />
         </aside>
