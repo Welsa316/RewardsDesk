@@ -30,10 +30,18 @@ const navItems = computed(() => {
     },
     { name: 'Leaderboard', routeName: 'leaderboard', to: { name: 'leaderboard' }, icon: 'chart' },
     { heading: true, name: 'Parking' },
-    { name: 'Sessions', routeName: 'parking-sessions', to: { name: 'parking-sessions' }, icon: 'car' },
+    { name: 'Overview', routeName: 'parking', to: { name: 'parking' }, icon: 'car' },
+    { name: 'Sessions', routeName: 'parking-sessions', to: { name: 'parking-sessions' }, icon: 'ticket' },
     { heading: true, name: 'Admin', admin: true },
     { name: 'Staff', routeName: 'staff', to: { name: 'staff' }, icon: 'users', admin: true },
     { name: 'Settings', routeName: 'settings', to: { name: 'settings' }, icon: 'settings', admin: true },
+    {
+      name: 'Parking Settings',
+      routeName: 'parking-settings',
+      to: { name: 'parking-settings' },
+      icon: 'sliders',
+      admin: true,
+    },
     { name: 'QR & links', routeName: 'qr', to: { name: 'qr' }, icon: 'qr', admin: true },
   ];
   return all.filter((i) => !i.admin || auth.isAdmin);

@@ -5,6 +5,7 @@ import QrCard from '../components/QrCard.vue';
 import PrefillLinkBuilder from '../components/PrefillLinkBuilder.vue';
 
 const sources = ref([]);
+const lots = ref([]);
 const loading = ref(true);
 const loadError = ref('');
 const baseUrl = window.location.origin;
@@ -15,6 +16,7 @@ async function load() {
   try {
     const { data } = await api.get();
     sources.value = data.sources || [];
+    lots.value = data.parking_lots || [];
   } catch {
     loadError.value = 'Could not load sources.';
   } finally {
@@ -46,6 +48,27 @@ onMounted(load);
       <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <QrCard v-for="s in sources" :key="s" :source="s" :base-url="baseUrl" />
       </div>
+    </section>
+
+    <section class="mt-8">
+      <h2 class="font-serif text-lg text-ink">Parking signs</h2>
+      <p class="mb-4 text-sm text-slate-warm">
+        White-label parking QR codes — one per lot, tagging where the guest scanned. Safe to print.
+      </p>
+      <div v-if="!loading && lots.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <QrCard
+          v-for="l in lots"
+          :key="`park-${l}`"
+          :source="l"
+          :base-url="baseUrl"
+          :link="`${baseUrl}/park?src=${encodeURIComponent(l)}`"
+          :label="`Parking — ${l}`"
+          :filename="`parking-${l}.png`"
+        />
+      </div>
+      <p v-else-if="!loading" class="text-sm text-slate-warm">
+        No lots configured yet — add them in Parking settings.
+      </p>
     </section>
 
     <section class="mt-8">

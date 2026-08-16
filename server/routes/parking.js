@@ -477,4 +477,173 @@ router.get('/dashboard', async (req, res, next) => {
   }
 });
 
+// GET /api/parking/revenue — reporting. Fixed today/week/month buckets in the
+// hotel timezone plus metrics over an optional custom range (ISO instants).
+const TS_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+router.get('/revenue', async (req, res, next) => {
+  try {
+    const cfg = await parkingConfig();
+    const tz = cfg.timezone || 'UTC';
+
+    const rawFrom = first(req.query.from);
+    const rawTo = first(req.query.to);
+    const from = TS_RE.test(rawFrom || '') ? rawFrom : null;
+    const to = TS_RE.test(rawTo || '') ? rawTo : null;
+
+    const rangeConds = [];
+    const rangeParams = [];
+    if (from) {
+      rangeParams.push(from);
+      rangeConds.push(`p.created_at >= $${rangeParams.length}::timestamptz`);
+    }
+    if (to) {
+      rangeParams.push(to);
+      rangeConds.push(`p.created_at < $${rangeParams.length}::timestamptz`);
+    }
+    const rangeSql = rangeConds.length ? rangeConds.join(' AND ') : 'TRUE';
+
+    // Fixed buckets ($1 = tz).
+    const { rows: bucketRows } = await query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN type='charge' THEN amount_cents ELSE -amount_cents END)
+           FILTER (WHERE created_at >= (date_trunc('day', now() AT TIME ZONE $1) AT TIME ZONE $1)), 0)::int AS today_cents,
+         COALESCE(SUM(CASE WHEN type='charge' THEN amount_cents ELSE -amount_cents END)
+           FILTER (WHERE created_at >= (date_trunc('week', now() AT TIME ZONE $1) AT TIME ZONE $1)), 0)::int AS week_cents,
+         COALESCE(SUM(CASE WHEN type='charge' THEN amount_cents ELSE -amount_cents END)
+           FILTER (WHERE created_at >= (date_trunc('month', now() AT TIME ZONE $1) AT TIME ZONE $1)), 0)::int AS month_cents
+       FROM parking_payments p
+       WHERE status='succeeded'`,
+      [tz],
+    );
+
+    // Range metrics ($1.. = range bounds only).
+    const { rows: rangeRows } = await query(
+      `SELECT
+         COALESCE(SUM(amount_cents) FILTER (WHERE type='charge'), 0)::int AS charges_cents,
+         COALESCE(SUM(amount_cents) FILTER (WHERE type='refund'), 0)::int AS refunds_cents,
+         COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND rate_type='hourly'), 0)::int AS hourly_cents,
+         COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND rate_type='daily'), 0)::int AS daily_cents,
+         COALESCE(ROUND(AVG(amount_cents) FILTER (WHERE type='charge' AND amount_cents > 0)), 0)::int AS avg_transaction_cents,
+         COUNT(DISTINCT session_id) FILTER (WHERE type='charge' AND amount_cents > 0)::int AS paid_vehicles
+       FROM parking_payments p
+       WHERE status='succeeded' AND ${rangeSql}`,
+      rangeParams,
+    );
+
+    // Average stay over sessions that started in the range.
+    const sessConds = [];
+    const sessParams = [];
+    if (from) {
+      sessParams.push(from);
+      sessConds.push(`ps.starts_at >= $${sessParams.length}::timestamptz`);
+    }
+    if (to) {
+      sessParams.push(to);
+      sessConds.push(`ps.starts_at < $${sessParams.length}::timestamptz`);
+    }
+    const { rows: stayRows } = await query(
+      `SELECT COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (ps.paid_through - ps.starts_at)) / 3600.0)::numeric, 1), 0)::float AS avg_stay_hours
+         FROM parking_sessions ps
+        WHERE ps.starts_at IS NOT NULL AND ps.paid_through IS NOT NULL
+          AND ps.disposition IN ('active','departed')
+          ${sessConds.length ? 'AND ' + sessConds.join(' AND ') : ''}`,
+      sessParams,
+    );
+
+    const r = rangeRows[0];
+    res.json({
+      buckets: bucketRows[0],
+      range: {
+        from,
+        to,
+        net_cents: r.charges_cents - r.refunds_cents,
+        charges_cents: r.charges_cents,
+        refunds_cents: r.refunds_cents,
+        hourly_cents: r.hourly_cents,
+        daily_cents: r.daily_cents,
+        avg_transaction_cents: r.avg_transaction_cents,
+        paid_vehicles: r.paid_vehicles,
+        avg_stay_hours: stayRows[0].avg_stay_hours,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/parking/export — ADMIN. Sessions CSV with payment totals.
+const EXPORT_CAP = 10000;
+const EXPORT_COLUMNS = [
+  ['id', 'ID'],
+  ['confirmation_code', 'Confirmation'],
+  ['guest_name', 'Guest'],
+  ['phone', 'Phone'],
+  ['email', 'Email'],
+  ['plate', 'Plate'],
+  ['vehicle_desc', 'Vehicle'],
+  ['room', 'Room'],
+  ['lot', 'Lot'],
+  ['kind', 'Type'],
+  ['status', 'Status'],
+  ['rate_type', 'Rate'],
+  ['quantity', 'Qty'],
+  ['starts_at', 'Entered'],
+  ['paid_through', 'Paid through'],
+  ['net_paid_cents', 'Net paid (cents)'],
+  ['comp_reason', 'Comp reason'],
+  ['comp_authorized_by', 'Comp authorized by'],
+  ['created_by_name', 'Created by'],
+  ['checked_out_at', 'Checked out'],
+  ['checked_out_by_name', 'Checked out by'],
+  ['created_at', 'Created'],
+];
+
+function csvCell(v) {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return v.toISOString();
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+router.get('/export', requireAdmin, async (req, res, next) => {
+  try {
+    const cfg = await parkingConfig();
+    const statusSql = derivedStatusSql('ps', cfg.parking_expiring_soon_minutes);
+
+    const { rows: countRows } = await query(
+      `SELECT count(*)::int AS total FROM parking_sessions ps`,
+    );
+    const total = countRows[0].total;
+    if (total > EXPORT_CAP) {
+      return res.status(422).json({
+        error: `Export matches ${total} records, over the ${EXPORT_CAP} limit. Purge old data or export in batches.`,
+      });
+    }
+
+    const { rows } = await query(
+      `SELECT ps.*, ${statusSql} AS status,
+              COALESCE(pay.net_paid_cents, 0) AS net_paid_cents,
+              cu.name AS created_by_name, xu.name AS checked_out_by_name
+         FROM parking_sessions ps
+         ${NET_PAID_JOIN}
+         LEFT JOIN users cu ON cu.id = ps.created_by
+         LEFT JOIN users xu ON xu.id = ps.checked_out_by
+        ORDER BY ps.created_at DESC, ps.id DESC`,
+    );
+
+    const header = EXPORT_COLUMNS.map(([, label]) => csvCell(label)).join(',');
+    const body = rows.map((r) => EXPORT_COLUMNS.map(([key]) => csvCell(r[key])).join(','));
+    const csv = [header, ...body].join('\r\n');
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="parking-sessions-${stamp}.csv"`);
+    res.setHeader('X-Total-Count', String(total));
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

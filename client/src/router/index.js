@@ -29,10 +29,17 @@ const routes = [
         component: () => import('../views/EnrollmentDetail.vue'),
       },
       { path: 'leaderboard', name: 'leaderboard', component: () => import('../views/Leaderboard.vue') },
+      { path: 'parking', name: 'parking', component: () => import('../views/ParkingDashboard.vue') },
       {
         path: 'parking/sessions',
         name: 'parking-sessions',
         component: () => import('../views/ParkingSessions.vue'),
+      },
+      {
+        path: 'parking/settings',
+        name: 'parking-settings',
+        component: () => import('../views/ParkingSettings.vue'),
+        meta: { requiresAdmin: true },
       },
       {
         path: 'staff',

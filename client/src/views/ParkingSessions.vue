@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { parking, parkingPublic } from '../api';
 import { useToastStore } from '../stores/toast';
 import ParkingStatusPill from '../components/ParkingStatusPill.vue';
@@ -8,6 +9,7 @@ import NewParkingSessionModal from '../components/NewParkingSessionModal.vue';
 import { formatMoney, formatDateTime, timeAgo } from '../utils/format';
 
 const toast = useToastStore();
+const route = useRoute();
 
 const rows = ref([]);
 const total = ref(0);
@@ -16,7 +18,11 @@ const loadError = ref('');
 const page = ref(1);
 const pageSize = 25;
 
-const filters = reactive({ q: '', status: '' });
+// Deep-linkable status filter (the dashboard's Expired card links here).
+const filters = reactive({
+  q: '',
+  status: typeof route.query.status === 'string' ? route.query.status : '',
+});
 
 const STATUS_TABS = [
   { v: '', label: 'All' },
