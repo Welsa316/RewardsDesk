@@ -31,7 +31,7 @@ function isActive(item) {
   <div class="flex h-full flex-col">
     <div class="px-5 py-5">
       <BrandMark size="sm" />
-      <p class="mt-2 text-xs font-medium uppercase tracking-wider text-slate-warm/60">Rewards Desk</p>
+      <p class="mt-2 text-xs font-medium uppercase tracking-wider text-slate-warm">Rewards Desk</p>
     </div>
 
     <nav class="flex-1 space-y-1 overflow-y-auto px-3">

@@ -76,7 +76,7 @@ onMounted(load);
 
 <template>
   <div class="mx-auto max-w-3xl">
-    <button class="mb-4 text-sm font-medium text-terracotta hover:underline" @click="router.back()">
+    <button class="mb-4 text-sm font-medium text-terracotta-700 hover:underline" @click="router.back()">
       ← Back
     </button>
 
@@ -105,19 +105,19 @@ onMounted(load);
         <h2 class="mb-3 font-serif text-lg text-ink">Details</h2>
         <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
           <div>
-            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm/70">Email</dt>
+            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Email</dt>
             <dd class="break-words text-ink">{{ enrollment.email || '—' }}</dd>
           </div>
           <div>
-            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm/70">Phone</dt>
+            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Phone</dt>
             <dd class="text-ink">{{ enrollment.phone || '—' }}</dd>
           </div>
           <div class="sm:col-span-2">
-            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm/70">Address</dt>
+            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Address</dt>
             <dd class="text-ink">{{ addressFull || '—' }}</dd>
           </div>
           <div>
-            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm/70">Consent</dt>
+            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Consent</dt>
             <dd class="text-ink">
               {{ enrollment.consent ? 'Yes' : 'No' }}
               <span v-if="enrollment.consent_at" class="text-slate-warm">
@@ -126,7 +126,7 @@ onMounted(load);
             </dd>
           </div>
           <div>
-            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm/70">Processed by</dt>
+            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Processed by</dt>
             <dd class="text-ink">
               {{ enrollment.processed_by_name || '—' }}
               <span v-if="enrollment.processed_at" class="text-slate-warm">
@@ -172,7 +172,7 @@ onMounted(load);
       </div>
 
       <div v-if="auth.isAdmin" class="pt-1 text-center">
-        <button class="text-sm font-medium text-red-600 hover:underline" @click="remove">
+        <button class="text-sm font-medium text-red-700 hover:underline" @click="remove">
           Delete this record
         </button>
       </div>

@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRoute, useRouter, RouterView } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useEnrollmentsStore } from '../stores/enrollments';
+import { focusFirst, trapTabKey } from '../utils/focusTrap';
 import Sidebar from './Sidebar.vue';
 import TopBar from './TopBar.vue';
 
@@ -50,6 +51,33 @@ async function logout() {
   router.push({ name: 'login' });
 }
 
+// Drawer focus management: focus moves in on open, stays trapped, Escape
+// closes, and focus returns to the opener (the hamburger) on close.
+const drawerRef = ref(null);
+let drawerReturnFocus = null;
+
+function onDrawerKey(e) {
+  if (e.key === 'Escape') {
+    drawerOpen.value = false;
+    return;
+  }
+  trapTabKey(drawerRef.value, e);
+}
+
+watch(drawerOpen, async (open) => {
+  if (open) {
+    drawerReturnFocus = document.activeElement;
+    document.addEventListener('keydown', onDrawerKey);
+    await nextTick();
+    focusFirst(drawerRef.value);
+  } else {
+    document.removeEventListener('keydown', onDrawerKey);
+    drawerReturnFocus?.focus?.();
+    drawerReturnFocus = null;
+  }
+});
+onBeforeUnmount(() => document.removeEventListener('keydown', onDrawerKey));
+
 watch(() => route.fullPath, () => (drawerOpen.value = false));
 onMounted(() => {
   if (!enrollments.loaded) enrollments.loadPending();
@@ -70,11 +98,19 @@ onMounted(() => {
       </div>
     </aside>
 
-    <!-- Mobile drawer -->
-    <Transition name="fade">
-      <div v-if="drawerOpen" class="fixed inset-0 z-30 lg:hidden">
+    <!-- Mobile drawer. Deliberately NOT wrapped in <Transition>: transition
+         completion rides on rAF, which throttled/backgrounded tabs suspend —
+         and a lingering invisible overlay would swallow every tap. Instant
+         mount/unmount is deterministic. -->
+    <div v-if="drawerOpen" class="fixed inset-0 z-30 lg:hidden">
         <div class="absolute inset-0 bg-ink/40" @click="drawerOpen = false" />
-        <aside class="absolute inset-y-0 left-0 w-72 bg-white shadow-xl">
+        <aside
+          ref="drawerRef"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
+          class="absolute inset-y-0 left-0 w-72 bg-white shadow-xl"
+        >
           <Sidebar
             :items="navItems"
             :user="auth.user"
@@ -83,8 +119,7 @@ onMounted(() => {
             @logout="logout"
           />
         </aside>
-      </div>
-    </Transition>
+    </div>
 
     <!-- Main -->
     <div class="flex min-w-0 flex-1 flex-col">

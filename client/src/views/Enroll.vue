@@ -122,6 +122,7 @@ async function submit() {
         <form class="card space-y-5 p-6" novalidate @submit.prevent="submit">
           <p
             v-if="formError"
+            role="alert"
             class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
           >
             {{ formError }}
@@ -134,24 +135,34 @@ async function submit() {
               <input
                 id="first_name"
                 v-model="form.first_name"
+                name="first_name"
                 class="input"
                 :class="{ 'input-error': fieldErrors.first_name }"
+                :aria-invalid="fieldErrors.first_name ? 'true' : undefined"
+                :aria-describedby="fieldErrors.first_name ? 'first_name-error' : undefined"
                 autocomplete="given-name"
+                autocapitalize="words"
+                spellcheck="false"
                 @input="clearError('first_name')"
               />
-              <p v-if="fieldErrors.first_name" class="field-error">{{ fieldErrors.first_name }}</p>
+              <p v-if="fieldErrors.first_name" id="first_name-error" class="field-error">{{ fieldErrors.first_name }}</p>
             </div>
             <div>
               <label class="label" for="last_name">Last name</label>
               <input
                 id="last_name"
                 v-model="form.last_name"
+                name="last_name"
                 class="input"
                 :class="{ 'input-error': fieldErrors.last_name }"
+                :aria-invalid="fieldErrors.last_name ? 'true' : undefined"
+                :aria-describedby="fieldErrors.last_name ? 'last_name-error' : undefined"
                 autocomplete="family-name"
+                autocapitalize="words"
+                spellcheck="false"
                 @input="clearError('last_name')"
               />
-              <p v-if="fieldErrors.last_name" class="field-error">{{ fieldErrors.last_name }}</p>
+              <p v-if="fieldErrors.last_name" id="last_name-error" class="field-error">{{ fieldErrors.last_name }}</p>
             </div>
           </div>
 
@@ -161,14 +172,20 @@ async function submit() {
             <input
               id="email"
               v-model="form.email"
+              name="email"
               class="input"
               :class="{ 'input-error': fieldErrors.email }"
+              :aria-invalid="fieldErrors.email ? 'true' : undefined"
+              :aria-describedby="fieldErrors.email ? 'email-error' : undefined"
               type="email"
               inputmode="email"
               autocomplete="email"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
               @input="clearError('email')"
             />
-            <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+            <p v-if="fieldErrors.email" id="email-error" class="field-error">{{ fieldErrors.email }}</p>
           </div>
 
           <!-- Phone -->
@@ -177,14 +194,17 @@ async function submit() {
             <input
               id="phone"
               v-model="form.phone"
+              name="phone"
               class="input"
               :class="{ 'input-error': fieldErrors.phone }"
+              :aria-invalid="fieldErrors.phone ? 'true' : undefined"
+              :aria-describedby="fieldErrors.phone ? 'phone-error' : undefined"
               type="tel"
               inputmode="tel"
               autocomplete="tel"
               @input="clearError('phone')"
             />
-            <p v-if="fieldErrors.phone" class="field-error">{{ fieldErrors.phone }}</p>
+            <p v-if="fieldErrors.phone" id="phone-error" class="field-error">{{ fieldErrors.phone }}</p>
           </div>
 
           <!-- Address -->
@@ -203,6 +223,8 @@ async function submit() {
               <input
                 v-model="form.consent"
                 type="checkbox"
+                :aria-invalid="fieldErrors.consent ? 'true' : undefined"
+                :aria-describedby="fieldErrors.consent ? 'consent-error' : undefined"
                 class="mt-0.5 h-5 w-5 shrink-0 rounded border-sand text-terracotta focus:ring-terracotta/40"
                 @change="clearError('consent')"
               />
@@ -211,7 +233,7 @@ async function submit() {
                 information to enroll me and to contact me about my membership.
               </span>
             </label>
-            <p v-if="fieldErrors.consent" class="field-error">{{ fieldErrors.consent }}</p>
+            <p v-if="fieldErrors.consent" id="consent-error" class="field-error">{{ fieldErrors.consent }}</p>
           </div>
 
           <button type="submit" class="btn btn-primary w-full" :disabled="!canSubmit">
@@ -219,7 +241,7 @@ async function submit() {
             <span v-else>Join Rewards</span>
           </button>
 
-          <p class="text-center text-xs text-slate-warm/70">
+          <p class="text-center text-xs text-slate-warm">
             We use these details only to set up your rewards account at the desk.
           </p>
         </form>

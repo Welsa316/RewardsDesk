@@ -10,13 +10,17 @@ const toast = useToastStore();
 
 const users = ref([]);
 const loading = ref(true);
+const loadError = ref('');
 
 onMounted(load);
 async function load() {
   loading.value = true;
+  loadError.value = '';
   try {
     const { data } = await api.list();
     users.value = data;
+  } catch {
+    loadError.value = 'Could not load staff.';
   } finally {
     loading.value = false;
   }
@@ -113,6 +117,11 @@ async function resetPassword() {
       <div v-for="i in 3" :key="i" class="h-20 animate-pulse rounded-xl border border-sand bg-white/60" />
     </div>
 
+    <div v-else-if="loadError" class="card p-6 text-center">
+      <p class="text-slate-warm">{{ loadError }}</p>
+      <button class="btn btn-secondary mt-4" @click="load">Retry</button>
+    </div>
+
     <div v-else class="space-y-3">
       <div v-for="u in users" :key="u.id" class="card p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -136,6 +145,7 @@ async function resetPassword() {
             :value="u.role"
             class="input !w-auto !py-1.5 text-sm"
             :disabled="u.id === auth.user?.id"
+            :aria-label="`Role for ${u.name}`"
             @change="setRole(u, $event.target.value)"
           >
             <option value="staff">Staff</option>
@@ -150,7 +160,7 @@ async function resetPassword() {
           <button
             v-if="u.id !== auth.user?.id"
             class="btn !py-1.5 text-sm"
-            :class="u.active ? 'border border-sand bg-white text-red-600 hover:bg-red-50' : 'border border-sand bg-white text-ink hover:bg-sand/50'"
+            :class="u.active ? 'border border-sand bg-white text-red-700 hover:bg-red-50' : 'border border-sand bg-white text-ink hover:bg-sand/50'"
             @click="toggleActive(u)"
           >
             {{ u.active ? 'Deactivate' : 'Reactivate' }}

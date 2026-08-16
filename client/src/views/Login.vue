@@ -40,6 +40,7 @@ async function submit() {
       <form class="card space-y-5 p-6" novalidate @submit.prevent="submit">
         <p
           v-if="error"
+          role="alert"
           class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {{ error }}

@@ -72,7 +72,7 @@ function onWalkUpCreated(data) {
         <h1 class="font-serif text-2xl text-ink">Pending queue</h1>
         <p class="text-sm text-slate-warm">{{ store.pendingCount }} waiting to be processed</p>
       </div>
-      <button class="btn btn-primary !py-2.5" @click="showWalkUp = true">
+      <button class="btn btn-primary !py-2.5" aria-label="Add walk-up enrollment" @click="showWalkUp = true">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" d="M12 5v14M5 12h14" />
         </svg>
@@ -80,7 +80,12 @@ function onWalkUpCreated(data) {
       </button>
     </div>
 
-    <input v-model="search" class="input mb-4" placeholder="Search name, email, or phone…" />
+    <input
+      v-model="search"
+      class="input mb-4"
+      aria-label="Search pending enrollments"
+      placeholder="Search name, email, or phone…"
+    />
 
     <!-- Loading skeleton -->
     <div v-if="store.loading && !store.loaded" class="space-y-3">

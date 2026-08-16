@@ -1,12 +1,14 @@
 <script setup>
 import { ref } from 'vue';
 import { copyText } from '../utils/clipboard';
+import { useToastStore } from '../stores/toast';
 
 const props = defineProps({
   label: { type: String, required: true },
   value: { type: [String, Number], default: '' },
 });
 
+const toast = useToastStore();
 const copied = ref(false);
 
 async function copy() {
@@ -15,6 +17,8 @@ async function copy() {
   if (ok) {
     copied.value = true;
     setTimeout(() => (copied.value = false), 1200);
+  } else {
+    toast.error("Couldn't copy — select the text and copy manually.");
   }
 }
 </script>
@@ -27,10 +31,10 @@ async function copy() {
     @click="copy"
   >
     <span class="min-w-0">
-      <span class="block text-[11px] font-medium uppercase tracking-wide text-slate-warm/70">{{ label }}</span>
+      <span class="block text-[11px] font-medium uppercase tracking-wide text-slate-warm">{{ label }}</span>
       <span class="block truncate text-ink">{{ value || '—' }}</span>
     </span>
-    <span class="shrink-0 text-xs font-semibold" :class="copied ? 'text-green-600' : 'text-terracotta'">
+    <span class="shrink-0 text-xs font-semibold" :class="copied ? 'text-green-700' : 'text-terracotta-700'">
       {{ copied ? 'Copied' : 'Copy' }}
     </span>
   </button>

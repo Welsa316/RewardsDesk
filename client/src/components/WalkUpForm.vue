@@ -57,6 +57,7 @@ async function submit() {
     <form class="space-y-4" novalidate @submit.prevent="submit">
       <p
         v-if="formError"
+        role="alert"
         class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
       >
         {{ formError }}
@@ -68,22 +69,32 @@ async function submit() {
           <input
             id="wu_first"
             v-model="form.first_name"
+            name="first_name"
             class="input"
             :class="{ 'input-error': fieldErrors.first_name }"
+            :aria-invalid="fieldErrors.first_name ? 'true' : undefined"
+            :aria-describedby="fieldErrors.first_name ? 'wu_first-error' : undefined"
             autocomplete="given-name"
+            autocapitalize="words"
+            spellcheck="false"
           />
-          <p v-if="fieldErrors.first_name" class="field-error">{{ fieldErrors.first_name }}</p>
+          <p v-if="fieldErrors.first_name" id="wu_first-error" class="field-error">{{ fieldErrors.first_name }}</p>
         </div>
         <div>
           <label class="label" for="wu_last">Last name</label>
           <input
             id="wu_last"
             v-model="form.last_name"
+            name="last_name"
             class="input"
             :class="{ 'input-error': fieldErrors.last_name }"
+            :aria-invalid="fieldErrors.last_name ? 'true' : undefined"
+            :aria-describedby="fieldErrors.last_name ? 'wu_last-error' : undefined"
             autocomplete="family-name"
+            autocapitalize="words"
+            spellcheck="false"
           />
-          <p v-if="fieldErrors.last_name" class="field-error">{{ fieldErrors.last_name }}</p>
+          <p v-if="fieldErrors.last_name" id="wu_last-error" class="field-error">{{ fieldErrors.last_name }}</p>
         </div>
       </div>
 
@@ -92,13 +103,19 @@ async function submit() {
         <input
           id="wu_email"
           v-model="form.email"
+          name="email"
           class="input"
           :class="{ 'input-error': fieldErrors.email }"
+          :aria-invalid="fieldErrors.email ? 'true' : undefined"
+          :aria-describedby="fieldErrors.email ? 'wu_email-error' : undefined"
           type="email"
           inputmode="email"
           autocomplete="email"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
         />
-        <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+        <p v-if="fieldErrors.email" id="wu_email-error" class="field-error">{{ fieldErrors.email }}</p>
       </div>
 
       <div>
@@ -106,13 +123,16 @@ async function submit() {
         <input
           id="wu_phone"
           v-model="form.phone"
+          name="phone"
           class="input"
           :class="{ 'input-error': fieldErrors.phone }"
+          :aria-invalid="fieldErrors.phone ? 'true' : undefined"
+          :aria-describedby="fieldErrors.phone ? 'wu_phone-error' : undefined"
           type="tel"
           inputmode="tel"
           autocomplete="tel"
         />
-        <p v-if="fieldErrors.phone" class="field-error">{{ fieldErrors.phone }}</p>
+        <p v-if="fieldErrors.phone" id="wu_phone-error" class="field-error">{{ fieldErrors.phone }}</p>
       </div>
 
       <AddressFields :form="form" :errors="fieldErrors" />

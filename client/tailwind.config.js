@@ -11,6 +11,7 @@ export default {
         },
         terracotta: {
           DEFAULT: '#C65D3E',
+          300: '#EDA88F', // light tint — accessible accent text on ink backgrounds
           600: '#B14E31',
           700: '#974227',
         },

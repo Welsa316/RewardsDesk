@@ -13,11 +13,11 @@ defineEmits(['process']);
         <p class="mt-0.5 truncate text-sm text-slate-warm">
           {{ enrollment.email || 'No email' }} · {{ enrollment.phone || 'No phone' }}
         </p>
-        <p class="truncate text-sm text-slate-warm/80">{{ oneLineAddress(enrollment) || 'No address' }}</p>
+        <p class="truncate text-sm text-slate-warm">{{ oneLineAddress(enrollment) || 'No address' }}</p>
       </div>
       <div class="shrink-0 text-right">
         <span class="text-xs font-medium text-slate-warm">{{ sourceLabel(enrollment.source) }}</span>
-        <p class="mt-1 text-xs text-slate-warm/60">{{ timeAgo(enrollment.created_at) }}</p>
+        <p class="mt-1 text-xs text-slate-warm">{{ timeAgo(enrollment.created_at) }}</p>
       </div>
     </div>
     <div class="mt-4 flex items-center gap-2">
