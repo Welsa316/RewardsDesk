@@ -3,6 +3,8 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
+import { getStripe } from '../lib/stripe.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
 import {
   priceCents,
@@ -137,7 +139,7 @@ router.get('/sessions/:id', async (req, res, next) => {
       query(
         `SELECT p.id, p.type, p.purpose, p.method, p.amount_cents, p.rate_type, p.quantity,
                 p.status, p.receipt_url, p.note, p.created_at, p.stripe_payment_intent_id,
-                u.name AS created_by_name
+                p.refunded_payment_id, u.name AS created_by_name
            FROM parking_payments p
            LEFT JOIN users u ON u.id = p.created_by
           WHERE p.session_id = $1
@@ -346,6 +348,80 @@ router.post('/sessions/:id/notes', async (req, res, next) => {
       [id, req.user.id, body],
     );
     res.status(201).json({ ...rows[0], author_name: req.user.name });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/parking/sessions/:id/refund — ADMIN. Full or partial refund of a
+// specific charge. Stripe charges refund through Stripe; desk/cash charges are
+// recorded-only (money handed back at the desk). Always audited.
+router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const paymentId = parseInt(req.body?.payment_id, 10);
+    if (!Number.isInteger(id) || !Number.isInteger(paymentId)) {
+      return res.status(400).json({ error: 'Invalid id' });
+    }
+    const reason = cleanStr(req.body?.reason, 200);
+    if (!reason) return res.status(422).json({ error: 'A refund reason is required.' });
+
+    const { rows } = await query(
+      `SELECT p.*,
+              COALESCE((SELECT SUM(r.amount_cents) FROM parking_payments r
+                         WHERE r.refunded_payment_id = p.id AND r.type='refund'
+                           AND r.status='succeeded'), 0)::int AS already_refunded
+         FROM parking_payments p
+        WHERE p.id = $1 AND p.session_id = $2`,
+      [paymentId, id],
+    );
+    const payment = rows[0];
+    if (!payment) return res.status(404).json({ error: 'Payment not found.' });
+    if (payment.type !== 'charge' || payment.status !== 'succeeded' || payment.amount_cents === 0) {
+      return res.status(422).json({ error: 'Only a succeeded charge can be refunded.' });
+    }
+
+    const refundable = payment.amount_cents - payment.already_refunded;
+    let amount = req.body?.amount_cents === undefined || req.body?.amount_cents === null
+      ? refundable
+      : Number(req.body.amount_cents);
+    if (!Number.isInteger(amount) || amount <= 0 || amount > refundable) {
+      return res.status(422).json({
+        error: `Refund must be between $0.01 and the remaining ${(refundable / 100).toFixed(2)} on this payment.`,
+      });
+    }
+
+    if (payment.method === 'stripe') {
+      if (!payment.stripe_payment_intent_id) {
+        return res.status(422).json({ error: 'This payment has no Stripe reference.' });
+      }
+      const refund = await getStripe().refunds.create({
+        payment_intent: payment.stripe_payment_intent_id,
+        amount,
+      });
+      // The charge.refunded webhook may race us — same stripe_refund_id either
+      // way, so exactly one audit row survives, annotated with the actor.
+      await query(
+        `INSERT INTO parking_payments
+           (session_id, type, purpose, method, amount_cents, status, stripe_refund_id,
+            stripe_payment_intent_id, refunded_payment_id, created_by, note)
+         VALUES ($1,'refund','refund','stripe',$2,'succeeded',$3,$4,$5,$6,$7)
+         ON CONFLICT (stripe_refund_id) DO UPDATE
+           SET created_by = EXCLUDED.created_by, note = EXCLUDED.note,
+               refunded_payment_id = EXCLUDED.refunded_payment_id, updated_at = now()`,
+        [id, amount, refund.id, payment.stripe_payment_intent_id, paymentId, req.user.id, reason],
+      );
+    } else {
+      // Desk/cash refund: recorded-only; the money changes hands at the desk.
+      await query(
+        `INSERT INTO parking_payments
+           (session_id, type, purpose, method, amount_cents, status, refunded_payment_id, created_by, note)
+         VALUES ($1,'refund','refund',$2,$3,'succeeded',$4,$5,$6)`,
+        [id, payment.method, amount, paymentId, req.user.id, reason],
+      );
+    }
+
+    res.status(201).json({ ok: true, refunded_cents: amount });
   } catch (err) {
     next(err);
   }

@@ -129,9 +129,8 @@ async function submitRefund() {
 function refundableCents(payment) {
   if (payment.type !== 'charge' || payment.status !== 'succeeded' || payment.amount_cents === 0) return 0;
   const refunded = (s.value?.payments || [])
-    .filter((p) => p.type === 'refund' && p.status === 'succeeded')
+    .filter((p) => p.type === 'refund' && p.status === 'succeeded' && p.refunded_payment_id === payment.id)
     .reduce((sum, p) => sum + p.amount_cents, 0);
-  // Session-level approximation for display; the server enforces per-payment.
   return Math.max(0, payment.amount_cents - refunded);
 }
 </script>
@@ -250,7 +249,7 @@ function refundableCents(payment) {
                   Receipt
                 </a>
                 <button
-                  v-if="auth.isAdmin && p.method === 'stripe' && refundableCents(p) > 0"
+                  v-if="auth.isAdmin && refundableCents(p) > 0"
                   type="button"
                   class="font-medium text-red-700 hover:underline"
                   @click="openRefund(p)"

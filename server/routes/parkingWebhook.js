@@ -118,10 +118,10 @@ async function handleChargeRefunded(charge) {
     await query(
       `INSERT INTO parking_payments
          (session_id, type, purpose, method, amount_cents, status, stripe_refund_id,
-          stripe_payment_intent_id, note)
-       VALUES ($1,'refund','refund','stripe',$2,'succeeded',$3,$4,'Synced from Stripe')
+          stripe_payment_intent_id, refunded_payment_id, note)
+       VALUES ($1,'refund','refund','stripe',$2,'succeeded',$3,$4,$5,'Synced from Stripe')
        ON CONFLICT (stripe_refund_id) DO NOTHING`,
-      [original.session_id, refund.amount, refund.id, piId],
+      [original.session_id, refund.amount, refund.id, piId, original.id],
     );
   }
 }
