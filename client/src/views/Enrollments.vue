@@ -5,6 +5,7 @@ import { enrollments as api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import { useToastStore } from '../stores/toast';
 import StatusPill from '../components/StatusPill.vue';
+import QualificationPill from '../components/QualificationPill.vue';
 import {
   fullName,
   sourceLabel,
@@ -27,7 +28,14 @@ const loading = ref(false);
 const page = ref(1);
 const pageSize = 20;
 
-const filters = reactive({ q: '', status: '', source: '', from: '', to: '' });
+const filters = reactive({ q: '', status: '', source: '', from: '', to: '', qualification: '' });
+
+const QUALIFICATION_OPTIONS = [
+  { v: '', label: 'Any qualification' },
+  { v: 'qualified', label: 'Qualified' },
+  { v: 'disqualified', label: 'Disqualified' },
+  { v: 'unreviewed', label: 'Awaiting review' },
+];
 
 const STATUS_OPTIONS = [
   { v: '', label: 'All statuses' },
@@ -44,7 +52,9 @@ async function load() {
   loading.value = true;
   try {
     const params = { page: page.value, pageSize, sort: 'created_at', dir: 'desc' };
-    for (const k of ['q', 'status', 'source', 'from', 'to']) if (filters[k]) params[k] = filters[k];
+    for (const k of ['q', 'status', 'source', 'from', 'to', 'qualification']) {
+      if (filters[k]) params[k] = filters[k];
+    }
     const { data } = await api.list(params);
     rows.value = data.data;
     total.value = data.total;
@@ -112,9 +122,12 @@ onMounted(load);
         aria-label="Search enrollments"
         placeholder="Search name, email, or phone…"
       />
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <select v-model="filters.status" class="input">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <select v-model="filters.status" class="input" aria-label="Filter by status">
           <option v-for="o in STATUS_OPTIONS" :key="o.v" :value="o.v">{{ o.label }}</option>
+        </select>
+        <select v-model="filters.qualification" class="input" aria-label="Filter by qualification">
+          <option v-for="o in QUALIFICATION_OPTIONS" :key="o.v" :value="o.v">{{ o.label }}</option>
         </select>
         <select v-model="filters.source" class="input">
           <option v-for="o in SOURCE_OPTIONS" :key="o.v" :value="o.v">{{ o.label }}</option>
@@ -151,7 +164,10 @@ onMounted(load);
           <p>{{ sourceLabel(e.source) }}</p>
           <p>{{ formatDateTime(e.created_at) }}</p>
         </div>
-        <StatusPill :status="e.status" />
+        <span class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          <StatusPill :status="e.status" />
+          <QualificationPill v-if="e.status === 'enrolled'" :qualification="e.qualification" />
+        </span>
       </button>
     </div>
 

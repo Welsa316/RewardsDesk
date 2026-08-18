@@ -3,6 +3,7 @@ import Modal from './Modal.vue';
 import CopyField from './CopyField.vue';
 import CopyAllButton from './CopyAllButton.vue';
 import StatusPill from './StatusPill.vue';
+import DuplicateWarning from './DuplicateWarning.vue';
 import { fullName, sourceLabel } from '../utils/format';
 
 defineProps({
@@ -33,6 +34,14 @@ const ACTIONS = [
           Prefilled
         </span>
       </div>
+
+      <DuplicateWarning
+        :email="enrollment.email"
+        :phone="enrollment.phone"
+        :first-name="enrollment.first_name"
+        :last-name="enrollment.last_name"
+        :exclude-id="enrollment.id"
+      />
 
       <p class="rounded-xl border border-sand bg-warm px-4 py-3 text-sm text-slate-warm">
         Enter this into the Best Western terminal, then mark the result below.

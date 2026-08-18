@@ -27,16 +27,25 @@ and a per-agent leaderboard.
   links. Consent-gated, honeypot-protected, rate-limited.
 - **Queue** — pending worklist with per-field copy + "Copy all", and one-tap status actions
   (Enrolled / Declined / Already a member / Duplicate) that attribute the agent and write an
-  audit trail. Optimistic UI with undo. Walk-up entry form.
+  audit trail. Optimistic UI with undo. Walk-up entry form. **Duplicate warning**: if the
+  guest's email, phone, or name already exists, staff see it before re-typing them into the
+  Best Western terminal.
+- **Qualification tracking** — the desk records the disposition; the owner separately records
+  the outcome Best Western reports back (**Qualified / Disqualified**, admin-only). Qualification
+  is cleared automatically if a record later leaves "enrolled".
 - **Dashboard** — month/YTD progress vs goals, pending & today counts, a 30/90-day trend
-  chart, source breakdown, and a recent-activity feed.
-- **Enrollments** — filter by status/source/date + search, paginate, drill into a detail
-  view (all fields, status-history timeline, editable status/notes), and export CSV.
-- **Leaderboard** — per-agent processed / enrolled / conversion% over a date range.
-- **Admin** — staff management (add, role, deactivate, reset password), settings (hotel
-  name, property code, goals, sources, hotel time zone), QR + prefilled-link tools,
-  CSV export, and data retention (purge old processed records). Daily/monthly stats
-  are computed in the hotel's configured time zone.
+  chart, source breakdown, a qualification panel (rate over *reviewed* records, plus how many
+  are still awaiting review), a personal "your performance" card, and a recent-activity feed.
+- **Enrollments** — filter by status/**qualification**/source/date + search, paginate, drill
+  into a detail view (all fields, full audit history, editable status/notes), and export CSV.
+- **Leaderboard** — per-agent processed / enrolled / qualified / conversion% for a date range,
+  plus today / MTD / YTD and progress against each agent's monthly goal.
+- **Audit history** — every enrollment records who created it, each status change, qualification
+  decisions, note edits, and deletions, with actor and timestamp.
+- **Admin** — staff management (add, role, deactivate, reset password, **per-staff monthly
+  goal**), settings (hotel name, property code, goals, sources, hotel time zone), QR +
+  prefilled-link tools, CSV export, and data retention (purge old processed records).
+  Daily/monthly stats are computed in the hotel's configured time zone.
 - **PWA** — installable, offline-aware (Workbox), branded manifest + icons.
 
 ## Guest Parking

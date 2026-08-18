@@ -3,7 +3,8 @@ import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr, isEmail, isPhone, asBool } from '../lib/validation.js';
-import { STATUSES, SORT_COLUMNS, buildListQuery } from '../lib/enrollmentFilters.js';
+import { STATUSES, QUALIFICATIONS, SORT_COLUMNS, buildListQuery } from '../lib/enrollmentFilters.js';
+import { logAudit, AUDIT_ACTIONS } from '../lib/audit.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -26,9 +27,10 @@ router.get('/', async (req, res, next) => {
     );
 
     const { rows } = await query(
-      `SELECT e.*, u.name AS processed_by_name
+      `SELECT e.*, u.name AS processed_by_name, qu.name AS qualified_by_name
          FROM enrollments e
          LEFT JOIN users u ON u.id = e.processed_by
+         LEFT JOIN users qu ON qu.id = e.qualified_by
         WHERE ${whereSql}
         ORDER BY ${sortKey} ${dir}, e.id DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -41,6 +43,58 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/enrollments/duplicates — possible existing records for a guest, so
+// staff are warned BEFORE typing someone into the Best Western terminal again.
+// Declared before /:id so the literal path wins over the id param.
+router.get('/duplicates', async (req, res, next) => {
+  try {
+    const first = (v) => (Array.isArray(v) ? v[0] : v);
+    const email = cleanStr(first(req.query.email), 254).toLowerCase();
+    const phone = cleanStr(first(req.query.phone), 32);
+    const firstName = cleanStr(first(req.query.first_name), 100);
+    const lastName = cleanStr(first(req.query.last_name), 100);
+    const excludeId = parseInt(first(req.query.exclude_id), 10);
+
+    const clauses = [];
+    const params = [];
+    if (email) {
+      params.push(email);
+      clauses.push(`lower(e.email) = $${params.length}`);
+    }
+    // Compare digits only so 504-555-1234 matches (504) 555 1234.
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length >= 7) {
+      params.push(phoneDigits);
+      clauses.push(`regexp_replace(COALESCE(e.phone,''), '\\D', '', 'g') = $${params.length}`);
+    }
+    if (firstName && lastName) {
+      params.push(firstName, lastName);
+      clauses.push(`(lower(e.first_name) = lower($${params.length - 1}) AND lower(e.last_name) = lower($${params.length}))`);
+    }
+    if (!clauses.length) return res.json({ matches: [] });
+
+    let where = `e.deleted_at IS NULL AND (${clauses.join(' OR ')})`;
+    if (Number.isInteger(excludeId)) {
+      params.push(excludeId);
+      where += ` AND e.id <> $${params.length}`;
+    }
+
+    const { rows } = await query(
+      `SELECT e.id, e.first_name, e.last_name, e.email, e.phone, e.status, e.qualification,
+              e.source, e.created_at, u.name AS processed_by_name
+         FROM enrollments e
+         LEFT JOIN users u ON u.id = e.processed_by
+        WHERE ${where}
+        ORDER BY e.created_at DESC
+        LIMIT 5`,
+      params,
+    );
+    res.json({ matches: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/enrollments/:id — single record + status history
 router.get('/:id', async (req, res, next) => {
   try {
@@ -48,16 +102,18 @@ router.get('/:id', async (req, res, next) => {
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
     const { rows } = await query(
-      `SELECT e.*, u.name AS processed_by_name
+      `SELECT e.*, u.name AS processed_by_name, qu.name AS qualified_by_name
          FROM enrollments e
          LEFT JOIN users u ON u.id = e.processed_by
+         LEFT JOIN users qu ON qu.id = e.qualified_by
         WHERE e.id = $1 AND e.deleted_at IS NULL`,
       [id],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
 
     const { rows: history } = await query(
-      `SELECT h.id, h.old_status, h.new_status, h.changed_at, h.changed_by, u.name AS changed_by_name
+      `SELECT h.id, h.action, h.old_status, h.new_status, h.detail, h.changed_at, h.changed_by,
+              u.name AS changed_by_name
          FROM status_history h
          LEFT JOIN users u ON u.id = h.changed_by
         WHERE h.enrollment_id = $1
@@ -135,12 +191,19 @@ router.post('/', async (req, res, next) => {
         ],
       );
       const row = rows[0];
+      await logAudit(client, {
+        enrollmentId: row.id,
+        action: AUDIT_ACTIONS.CREATED,
+        detail: `Walk-up record created (${v.source})`,
+        userId: req.user.id,
+      });
       if (processed) {
-        await client.query(
-          `INSERT INTO status_history (enrollment_id, old_status, new_status, changed_by)
-           VALUES ($1, NULL, $2, $3)`,
-          [row.id, status, req.user.id],
-        );
+        await logAudit(client, {
+          enrollmentId: row.id,
+          action: AUDIT_ACTIONS.STATUS_CHANGE,
+          newStatus: status,
+          userId: req.user.id,
+        });
       }
       return row;
     });
@@ -166,7 +229,10 @@ router.patch('/:id', async (req, res, next) => {
 
     const hasStatus = typeof req.body?.status === 'string';
     const hasNotes = typeof req.body?.notes === 'string';
-    if (!hasStatus && !hasNotes) return res.status(400).json({ error: 'Nothing to update.' });
+    const hasQualification = 'qualification' in (req.body ?? {});
+    if (!hasStatus && !hasNotes && !hasQualification) {
+      return res.status(400).json({ error: 'Nothing to update.' });
+    }
 
     let newStatus = existing.status;
     if (hasStatus) {
@@ -175,10 +241,35 @@ router.patch('/:id', async (req, res, next) => {
       }
       newStatus = req.body.status;
     }
+
+    // Qualification is the outcome Best Western reports back, so only the owner
+    // records it — and only on a record the desk actually enrolled.
+    let qualification = existing.qualification;
+    if (hasQualification) {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only an admin can set qualification.' });
+      }
+      const q = req.body.qualification;
+      if (q !== null && q !== '' && !QUALIFICATIONS.includes(q)) {
+        return res.status(422).json({ error: 'Invalid qualification.' });
+      }
+      qualification = q === null || q === '' ? null : q;
+      const effectiveStatus = hasStatus ? newStatus : existing.status;
+      if (qualification && effectiveStatus !== 'enrolled') {
+        return res.status(422).json({ error: 'Only an enrolled record can be qualified.' });
+      }
+    }
+
     const notes = hasNotes ? cleanStr(req.body.notes, 2000) || null : existing.notes;
     const statusChanged = hasStatus && newStatus !== existing.status;
+    const notesChanged = hasNotes && notes !== existing.notes;
+    // A record that leaves 'enrolled' can't carry a qualification with it.
+    const clearQualification = statusChanged && newStatus !== 'enrolled' && existing.qualification;
+    if (clearQualification) qualification = null;
+    const qualificationChanged = qualification !== existing.qualification;
 
     const updated = await withTransaction(async (client) => {
+      let row;
       if (statusChanged) {
         // A record moved back to 'pending' (queue Undo) has no processor —
         // clearing attribution keeps leaderboard processed/conversion honest.
@@ -188,23 +279,61 @@ router.patch('/:id', async (req, res, next) => {
               SET status = $1, notes = $2,
                   processed_by = CASE WHEN $5 THEN NULL ELSE $3::int END,
                   processed_at = CASE WHEN $5 THEN NULL ELSE now() END,
+                  qualification = $6,
+                  qualified_by = CASE WHEN $6::text IS NULL THEN NULL ELSE $7::int END,
+                  qualified_at = CASE WHEN $6::text IS NULL THEN NULL ELSE now() END,
                   updated_at = now()
             WHERE id = $4
             RETURNING *`,
-          [newStatus, notes, req.user.id, id, backToPending],
+          [newStatus, notes, req.user.id, id, backToPending, qualification, existing.qualified_by || req.user.id],
         );
-        await client.query(
-          `INSERT INTO status_history (enrollment_id, old_status, new_status, changed_by)
-           VALUES ($1, $2, $3, $4)`,
-          [id, existing.status, newStatus, req.user.id],
+        row = rows[0];
+        await logAudit(client, {
+          enrollmentId: id,
+          action: AUDIT_ACTIONS.STATUS_CHANGE,
+          oldStatus: existing.status,
+          newStatus,
+          userId: req.user.id,
+        });
+      } else if (qualificationChanged) {
+        const { rows } = await client.query(
+          `UPDATE enrollments
+              SET qualification = $1, notes = $2,
+                  qualified_by = CASE WHEN $1::text IS NULL THEN NULL ELSE $3::int END,
+                  qualified_at = CASE WHEN $1::text IS NULL THEN NULL ELSE now() END,
+                  updated_at = now()
+            WHERE id = $4
+            RETURNING *`,
+          [qualification, notes, req.user.id, id],
         );
-        return rows[0];
+        row = rows[0];
+      } else {
+        const { rows } = await client.query(
+          'UPDATE enrollments SET notes = $1, updated_at = now() WHERE id = $2 RETURNING *',
+          [notes, id],
+        );
+        row = rows[0];
       }
-      const { rows } = await client.query(
-        'UPDATE enrollments SET notes = $1, updated_at = now() WHERE id = $2 RETURNING *',
-        [notes, id],
-      );
-      return rows[0];
+
+      if (qualificationChanged) {
+        await logAudit(client, {
+          enrollmentId: id,
+          action: AUDIT_ACTIONS.QUALIFICATION,
+          detail: qualification
+            ? `Marked ${qualification}`
+            : `Qualification cleared${clearQualification ? ' (status changed)' : ''}`,
+          userId: req.user.id,
+        });
+      }
+      if (notesChanged) {
+        await logAudit(client, {
+          enrollmentId: id,
+          action: AUDIT_ACTIONS.NOTE_EDITED,
+          detail: notes ? 'Notes updated' : 'Notes cleared',
+          userId: req.user.id,
+        });
+      }
+      return row;
     });
 
     let processed_by_name = null;
@@ -247,11 +376,21 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-    const { rows } = await query(
-      'UPDATE enrollments SET deleted_at = now(), updated_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
-      [id],
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    const deleted = await withTransaction(async (client) => {
+      const { rows } = await client.query(
+        'UPDATE enrollments SET deleted_at = now(), updated_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
+        [id],
+      );
+      if (!rows[0]) return null;
+      await logAudit(client, {
+        enrollmentId: id,
+        action: AUDIT_ACTIONS.DELETED,
+        detail: 'Record deleted',
+        userId: req.user.id,
+      });
+      return rows[0];
+    });
+    if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   } catch (err) {
     next(err);

@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth';
 import StatCard from '../components/StatCard.vue';
 import TrendChart from '../components/TrendChart.vue';
 import StatusPill from '../components/StatusPill.vue';
-import { sourceLabel, timeAgo } from '../utils/format';
+import { sourceLabel, timeAgo, auditSentence } from '../utils/format';
 
 const stats = useStatsStore();
 const auth = useAuthStore();
@@ -15,6 +15,22 @@ const d = computed(() => stats.dashboard);
 const trendData = computed(() => (d.value?.trend || []).slice(-range.value));
 const maxSource = computed(() => Math.max(1, ...(d.value?.sources || []).map((s) => s.count)));
 const firstName = auth.user?.name?.split(' ')[0] ?? '';
+
+// Rate over REVIEWED records only; unreviewed are reported separately so the
+// number never looks alarming just because Best Western hasn't reported yet.
+const qualificationRate = computed(() => {
+  const t = d.value?.totals;
+  if (!t) return null;
+  const reviewed = t.qualified + t.disqualified;
+  return reviewed ? Math.round((t.qualified / reviewed) * 100) : null;
+});
+
+const me = computed(() => d.value?.me);
+const myGoalPct = computed(() => {
+  const m = me.value;
+  if (!m?.monthly_goal) return null;
+  return Math.min(100, Math.round((m.month / m.monthly_goal) * 100));
+});
 
 onMounted(() => stats.loadDashboard());
 </script>
@@ -36,6 +52,72 @@ onMounted(() => stats.loadDashboard());
         <StatCard label="This year" :value="d.totals.year_enrolled" :goal="d.goals.annual" />
         <StatCard label="Pending" :value="d.totals.pending" hint="Waiting in the queue" />
         <StatCard label="Enrolled today" :value="d.totals.today_enrolled" hint="Completed at the desk" />
+      </div>
+
+      <!-- Qualification + personal performance -->
+      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+        <div class="card p-5">
+          <h2 class="font-serif text-lg text-ink">Qualification</h2>
+          <p class="mt-1 text-sm text-slate-warm">
+            Outcomes reported back by Best Western.
+          </p>
+          <div class="mt-4 flex items-baseline gap-2">
+            <span class="font-serif text-3xl text-ink">
+              {{ qualificationRate === null ? '—' : qualificationRate + '%' }}
+            </span>
+            <span class="text-sm text-slate-warm">
+              {{ qualificationRate === null ? 'nothing reviewed yet' : 'of reviewed enrollments qualified' }}
+            </span>
+          </div>
+          <dl class="mt-4 grid grid-cols-3 gap-3 text-center">
+            <div class="rounded-xl border border-sand bg-warm/40 py-2">
+              <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Qualified</dt>
+              <dd class="font-serif text-xl text-green-700">{{ d.totals.qualified }}</dd>
+            </div>
+            <div class="rounded-xl border border-sand bg-warm/40 py-2">
+              <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Disqualified</dt>
+              <dd class="font-serif text-xl text-red-700">{{ d.totals.disqualified }}</dd>
+            </div>
+            <div class="rounded-xl border border-sand bg-warm/40 py-2">
+              <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Awaiting</dt>
+              <dd class="font-serif text-xl text-ink">{{ d.totals.awaiting_review }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div v-if="me" class="card p-5">
+          <h2 class="font-serif text-lg text-ink">Your performance</h2>
+          <p class="mt-1 text-sm text-slate-warm">Enrollments you completed at the desk.</p>
+          <dl class="mt-4 grid grid-cols-3 gap-3 text-center">
+            <div class="rounded-xl border border-sand bg-warm/40 py-2">
+              <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Today</dt>
+              <dd class="font-serif text-xl text-ink">{{ me.today }}</dd>
+            </div>
+            <div class="rounded-xl border border-sand bg-warm/40 py-2">
+              <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">This month</dt>
+              <dd class="font-serif text-xl text-ink">{{ me.month }}</dd>
+            </div>
+            <div class="rounded-xl border border-sand bg-warm/40 py-2">
+              <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">This year</dt>
+              <dd class="font-serif text-xl text-ink">{{ me.year }}</dd>
+            </div>
+          </dl>
+          <div v-if="me.monthly_goal" class="mt-4">
+            <div class="mb-1 flex justify-between text-sm">
+              <span class="text-slate-warm">Monthly goal</span>
+              <span class="text-ink">{{ me.month }} / {{ me.monthly_goal }}</span>
+            </div>
+            <div class="h-2 w-full overflow-hidden rounded-full bg-sand">
+              <div class="h-full rounded-full bg-terracotta transition-all duration-500" :style="{ width: myGoalPct + '%' }" />
+            </div>
+            <p class="mt-1.5 text-xs text-slate-warm">
+              {{ Math.max(0, me.monthly_goal - me.month) }} to go · {{ me.qualified }} qualified so far
+            </p>
+          </div>
+          <p v-else class="mt-4 text-sm text-slate-warm">
+            No personal monthly goal set{{ auth.isAdmin ? ' — set one on the Staff page.' : '.' }}
+          </p>
+        </div>
       </div>
 
       <!-- Trend -->
@@ -89,7 +171,13 @@ onMounted(() => stats.loadDashboard());
           <h2 class="font-serif text-lg text-ink">Recent activity</h2>
           <ul v-if="d.recent.length" class="mt-4 space-y-3">
             <li v-for="r in d.recent" :key="r.id" class="flex items-center gap-3 text-sm">
-              <StatusPill :status="r.new_status" />
+              <StatusPill v-if="r.action === 'status_change'" :status="r.new_status" />
+              <span
+                v-else
+                class="inline-flex shrink-0 items-center rounded-full bg-sand/70 px-2.5 py-0.5 text-xs font-medium text-slate-warm"
+              >
+                {{ auditSentence(r) }}
+              </span>
               <span class="min-w-0 flex-1 truncate text-ink">{{ r.first_name }} {{ r.last_name }}</span>
               <span class="shrink-0 text-xs text-slate-warm">
                 {{ r.changed_by_name }} · {{ timeAgo(r.changed_at) }}

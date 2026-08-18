@@ -2,6 +2,9 @@ import { cleanStr } from './validation.js';
 
 export const STATUSES = ['pending', 'enrolled', 'declined', 'already_member', 'duplicate'];
 
+// Outcome reported back by Best Western, tracked separately from the desk status.
+export const QUALIFICATIONS = ['qualified', 'disqualified'];
+
 export const SORT_COLUMNS = {
   created_at: 'e.created_at',
   updated_at: 'e.updated_at',
@@ -23,6 +26,7 @@ export function buildListQuery(raw) {
     q: first(raw.q),
     from: first(raw.from),
     to: first(raw.to),
+    qualification: first(raw.qualification),
   };
   const where = ['e.deleted_at IS NULL'];
   const params = [];
@@ -30,6 +34,12 @@ export function buildListQuery(raw) {
   if (q.status && STATUSES.includes(q.status)) {
     params.push(q.status);
     where.push(`e.status = $${params.length}`);
+  }
+  if (q.qualification === 'unreviewed') {
+    where.push(`(e.status = 'enrolled' AND e.qualification IS NULL)`);
+  } else if (QUALIFICATIONS.includes(q.qualification)) {
+    params.push(q.qualification);
+    where.push(`e.qualification = $${params.length}`);
   }
   if (q.source) {
     params.push(cleanStr(q.source, 40));

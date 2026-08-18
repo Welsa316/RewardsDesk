@@ -26,6 +26,9 @@ const COLUMNS = [
   ['country', 'Country'],
   ['source', 'Source'],
   ['status', 'Status'],
+  ['qualification', 'Qualification'],
+  ['qualified_by_name', 'Qualified by'],
+  ['qualified_at', 'Qualified at'],
   ['prefilled', 'Prefilled'],
   ['consent', 'Consent'],
   ['consent_at', 'Consent at'],
@@ -59,9 +62,10 @@ router.get('/', async (req, res, next) => {
     }
 
     const { rows } = await query(
-      `SELECT e.*, u.name AS processed_by_name
+      `SELECT e.*, u.name AS processed_by_name, qu.name AS qualified_by_name
          FROM enrollments e
          LEFT JOIN users u ON u.id = e.processed_by
+         LEFT JOIN users qu ON qu.id = e.qualified_by
         WHERE ${whereSql}
         ORDER BY e.created_at DESC, e.id DESC`,
       params,

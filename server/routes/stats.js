@@ -18,7 +18,7 @@ router.get('/dashboard', async (req, res, next) => {
     );
     const tz = settings.rows[0]?.timezone || 'UTC';
 
-    const [statusCounts, totals, trend, sources, recent] = await Promise.all([
+    const [statusCounts, totals, trend, sources, recent, mine] = await Promise.all([
       query(
         `SELECT status, count(*)::int AS count
            FROM enrollments WHERE deleted_at IS NULL
@@ -35,6 +35,9 @@ router.get('/dashboard', async (req, res, next) => {
              AND processed_at >= (date_trunc('day', now() AT TIME ZONE $1) AT TIME ZONE $1))::int   AS today_enrolled,
            count(*) FILTER (WHERE status = 'pending')::int                                          AS pending,
            count(*) FILTER (WHERE status = 'enrolled')::int                                         AS total_enrolled,
+           count(*) FILTER (WHERE qualification = 'qualified')::int                                 AS qualified,
+           count(*) FILTER (WHERE qualification = 'disqualified')::int                              AS disqualified,
+           count(*) FILTER (WHERE status = 'enrolled' AND qualification IS NULL)::int               AS awaiting_review,
            count(*)::int                                                                            AS total
          FROM enrollments WHERE deleted_at IS NULL`,
         [tz],
@@ -62,13 +65,30 @@ router.get('/dashboard', async (req, res, next) => {
       ),
 
       query(
-        `SELECT h.id, h.new_status, h.changed_at, u.name AS changed_by_name,
+        `SELECT h.id, h.action, h.new_status, h.detail, h.changed_at, u.name AS changed_by_name,
                 e.id AS enrollment_id, e.first_name, e.last_name
            FROM status_history h
            JOIN enrollments e ON e.id = h.enrollment_id
            LEFT JOIN users u ON u.id = h.changed_by
           ORDER BY h.changed_at DESC, h.id DESC
-          LIMIT 10`,
+          LIMIT 12`,
+      ),
+
+      // The signed-in user's own numbers — staff see their contribution without
+      // reading the whole leaderboard.
+      query(
+        `SELECT
+           count(*) FILTER (WHERE status='enrolled'
+             AND processed_at >= (date_trunc('day', now() AT TIME ZONE $2) AT TIME ZONE $2))::int   AS today,
+           count(*) FILTER (WHERE status='enrolled'
+             AND processed_at >= (date_trunc('month', now() AT TIME ZONE $2) AT TIME ZONE $2))::int AS month,
+           count(*) FILTER (WHERE status='enrolled'
+             AND processed_at >= (date_trunc('year', now() AT TIME ZONE $2) AT TIME ZONE $2))::int  AS year,
+           count(*) FILTER (WHERE status='enrolled' AND qualification='qualified')::int             AS qualified,
+           (SELECT monthly_goal FROM users WHERE id = $1)                                           AS monthly_goal
+         FROM enrollments
+        WHERE deleted_at IS NULL AND processed_by = $1`,
+        [req.user.id, tz],
       ),
     ]);
 
@@ -86,6 +106,7 @@ router.get('/dashboard', async (req, res, next) => {
       trend: trend.rows,
       sources: sources.rows,
       recent: recent.rows,
+      me: { ...mine.rows[0], name: req.user.name },
     });
   } catch (err) {
     next(err);
@@ -111,8 +132,12 @@ router.get('/leaderboard', async (req, res, next) => {
     const from = TS_RE.test(rawFrom || '') ? rawFrom : null;
     const to = TS_RE.test(rawTo || '') ? rawTo : null;
 
+    const { rows: settingsRows } = await query('SELECT timezone FROM settings WHERE id = 1');
+    const tz = settingsRows[0]?.timezone || 'UTC';
+
+    // $1 is always the hotel timezone; range bounds follow.
     const joinConds = ['e.processed_by = u.id', 'e.deleted_at IS NULL'];
-    const params = [];
+    const params = [tz];
     if (from) {
       params.push(from);
       joinConds.push(`e.processed_at >= $${params.length}::timestamptz`);
@@ -122,14 +147,25 @@ router.get('/leaderboard', async (req, res, next) => {
       joinConds.push(`e.processed_at < $${params.length}::timestamptz`);
     }
 
+    // Today/MTD/YTD are fixed hotel-calendar buckets, so they come from
+    // correlated subqueries rather than the range-filtered join.
+    const bucket = (unit) =>
+      `(SELECT count(*) FROM enrollments x
+         WHERE x.processed_by = u.id AND x.deleted_at IS NULL AND x.status = 'enrolled'
+           AND x.processed_at >= (date_trunc('${unit}', now() AT TIME ZONE $1) AT TIME ZONE $1))::int`;
+
     const { rows } = await query(
-      `SELECT u.id, u.name,
+      `SELECT u.id, u.name, u.monthly_goal,
               count(e.id)::int AS processed,
-              count(e.id) FILTER (WHERE e.status = 'enrolled')::int AS enrolled
+              count(e.id) FILTER (WHERE e.status = 'enrolled')::int AS enrolled,
+              count(e.id) FILTER (WHERE e.qualification = 'qualified')::int AS qualified,
+              ${bucket('day')} AS today,
+              ${bucket('month')} AS month_enrolled,
+              ${bucket('year')} AS year_enrolled
          FROM users u
          LEFT JOIN enrollments e ON ${joinConds.join(' AND ')}
         WHERE u.role IN ('admin', 'staff') AND u.active = TRUE
-        GROUP BY u.id, u.name
+        GROUP BY u.id, u.name, u.monthly_goal
         ORDER BY enrolled DESC, processed DESC, u.name ASC`,
       params,
     );
@@ -137,9 +173,12 @@ router.get('/leaderboard', async (req, res, next) => {
     res.json({
       from,
       to,
+      timezone: tz,
       rows: rows.map((r) => ({
         ...r,
         conversion: r.processed ? Math.round((r.enrolled / r.processed) * 100) : 0,
+        goal_pct: r.monthly_goal ? Math.round((r.month_enrolled / r.monthly_goal) * 100) : null,
+        goal_remaining: r.monthly_goal ? Math.max(0, r.monthly_goal - r.month_enrolled) : null,
       })),
     });
   } catch (err) {

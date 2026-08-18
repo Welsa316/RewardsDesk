@@ -5,8 +5,9 @@ import { enrollments as api } from '../api';
 import { useToastStore } from '../stores/toast';
 import { useAuthStore } from '../stores/auth';
 import StatusPill from '../components/StatusPill.vue';
+import QualificationPill from '../components/QualificationPill.vue';
 import CopyAllButton from '../components/CopyAllButton.vue';
-import { fullName, sourceLabel, formatDateTime, statusLabel, STATUS_LABELS } from '../utils/format';
+import { fullName, sourceLabel, formatDateTime, auditSentence, STATUS_LABELS } from '../utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -60,6 +61,21 @@ async function save() {
   }
 }
 
+// Qualification is the outcome Best Western reports back — admin only.
+const qualifying = ref(false);
+async function setQualification(value) {
+  qualifying.value = true;
+  try {
+    await api.patch(route.params.id, { qualification: value });
+    await load();
+    toast.success(value ? `Marked ${value}` : 'Qualification cleared');
+  } catch (err) {
+    toast.error(err?.response?.data?.error || 'Could not update qualification.');
+  } finally {
+    qualifying.value = false;
+  }
+}
+
 async function remove() {
   if (!window.confirm('Delete this record? It will be hidden from all lists and stats.')) return;
   try {
@@ -93,7 +109,10 @@ onMounted(load);
               <span v-if="enrollment.prefilled"> · prefilled</span>
             </p>
           </div>
-          <StatusPill :status="enrollment.status" />
+          <div class="flex shrink-0 flex-col items-end gap-1.5">
+            <StatusPill :status="enrollment.status" />
+            <QualificationPill v-if="enrollment.status === 'enrolled'" :qualification="enrollment.qualification" />
+          </div>
         </div>
         <div class="mt-4">
           <CopyAllButton :enrollment="enrollment" />
@@ -137,6 +156,44 @@ onMounted(load);
         </dl>
       </div>
 
+      <!-- Qualification (admin) -->
+      <div v-if="auth.isAdmin && enrollment.status === 'enrolled'" class="card p-5">
+        <h2 class="font-serif text-lg text-ink">Best Western qualification</h2>
+        <p class="mb-3 mt-1 text-sm text-slate-warm">
+          Record the outcome once Best Western confirms whether this enrollment counted
+          for the property.
+          <span v-if="enrollment.qualified_by_name" class="block">
+            Last set by {{ enrollment.qualified_by_name }} · {{ formatDateTime(enrollment.qualified_at) }}
+          </span>
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <button
+            class="btn !py-2"
+            :class="enrollment.qualification === 'qualified' ? 'btn-primary' : 'border border-sand bg-white text-ink hover:bg-sand/50'"
+            :disabled="qualifying"
+            @click="setQualification('qualified')"
+          >
+            Qualified
+          </button>
+          <button
+            class="btn !py-2"
+            :class="enrollment.qualification === 'disqualified' ? 'btn-secondary' : 'border border-sand bg-white text-ink hover:bg-sand/50'"
+            :disabled="qualifying"
+            @click="setQualification('disqualified')"
+          >
+            Disqualified
+          </button>
+          <button
+            v-if="enrollment.qualification"
+            class="btn btn-ghost !py-2"
+            :disabled="qualifying"
+            @click="setQualification(null)"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
       <!-- Update -->
       <div class="card p-5">
         <h2 class="mb-3 font-serif text-lg text-ink">Update</h2>
@@ -151,24 +208,24 @@ onMounted(load);
         </button>
       </div>
 
-      <!-- History -->
+      <!-- Audit trail -->
       <div class="card p-5">
-        <h2 class="mb-3 font-serif text-lg text-ink">Status history</h2>
+        <h2 class="mb-3 font-serif text-lg text-ink">History</h2>
         <ol v-if="enrollment.history?.length" class="space-y-3">
           <li v-for="h in enrollment.history" :key="h.id" class="flex items-start gap-3">
-            <div class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-terracotta" />
+            <div
+              class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+              :class="h.action === 'qualification' ? 'bg-green-600' : h.action === 'created' ? 'bg-ink' : 'bg-terracotta'"
+            />
             <div class="text-sm">
-              <p class="text-ink">
-                <span v-if="h.old_status">{{ statusLabel(h.old_status) }} → </span>
-                <span class="font-medium">{{ statusLabel(h.new_status) }}</span>
-              </p>
+              <p class="font-medium text-ink">{{ auditSentence(h) }}</p>
               <p class="text-xs text-slate-warm">
                 {{ h.changed_by_name || 'System' }} · {{ formatDateTime(h.changed_at) }}
               </p>
             </div>
           </li>
         </ol>
-        <p v-else class="text-sm text-slate-warm">No status changes yet.</p>
+        <p v-else class="text-sm text-slate-warm">No activity yet.</p>
       </div>
 
       <div v-if="auth.isAdmin" class="pt-1 text-center">

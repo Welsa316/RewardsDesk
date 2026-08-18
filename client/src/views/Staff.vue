@@ -55,6 +55,23 @@ async function addStaff() {
   }
 }
 
+async function setGoal(u, value) {
+  const raw = String(value).trim();
+  const goal = raw === '' ? null : Number(raw);
+  if (goal !== null && (!Number.isInteger(goal) || goal < 0)) {
+    toast.error('Monthly goal must be a whole number.');
+    return;
+  }
+  if (goal === u.monthly_goal) return;
+  try {
+    await api.update(u.id, { monthly_goal: goal });
+    u.monthly_goal = goal;
+    toast.success(goal === null ? `Goal cleared for ${u.name}` : `${u.name}: ${goal}/month`);
+  } catch (err) {
+    toast.error(err?.response?.data?.error || 'Could not set the goal.');
+  }
+}
+
 async function setRole(u, role) {
   if (u.role === role) return;
   try {
@@ -151,6 +168,19 @@ async function resetPassword() {
             <option value="staff">Staff</option>
             <option value="admin">Admin</option>
           </select>
+          <label class="flex items-center gap-2 text-sm text-slate-warm">
+            <span class="whitespace-nowrap">Monthly goal</span>
+            <input
+              :value="u.monthly_goal ?? ''"
+              type="number"
+              min="0"
+              inputmode="numeric"
+              class="input !w-24 !py-1.5 text-sm"
+              :aria-label="`Monthly enrollment goal for ${u.name}`"
+              placeholder="—"
+              @change="setGoal(u, $event.target.value)"
+            />
+          </label>
           <button
             class="btn border border-sand bg-white !py-1.5 text-sm text-ink hover:bg-sand/50"
             @click="openReset(u)"

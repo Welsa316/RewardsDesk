@@ -23,6 +23,28 @@ export function statusLabel(s) {
   return STATUS_LABELS[s] || s || '—';
 }
 
+export const QUALIFICATION_LABELS = {
+  qualified: 'Qualified',
+  disqualified: 'Disqualified',
+};
+
+export function qualificationLabel(q) {
+  return QUALIFICATION_LABELS[q] || 'Awaiting review';
+}
+
+// Human sentence for an audit-trail row.
+export function auditSentence(h) {
+  if (h.action === 'created') return h.detail || 'Record created';
+  if (h.action === 'status_change') {
+    const from = h.old_status ? `${statusLabel(h.old_status)} → ` : '';
+    return `${from}${statusLabel(h.new_status)}`;
+  }
+  if (h.action === 'qualification') return h.detail || 'Qualification updated';
+  if (h.action === 'note_edited') return h.detail || 'Notes updated';
+  if (h.action === 'deleted') return h.detail || 'Record deleted';
+  return h.detail || h.action || 'Updated';
+}
+
 export function fullName(e) {
   return `${e?.first_name ?? ''} ${e?.last_name ?? ''}`.trim();
 }

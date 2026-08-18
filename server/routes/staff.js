@@ -8,7 +8,7 @@ import { cleanStr, isEmail } from '../lib/validation.js';
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
-const PUBLIC_COLUMNS = 'id, name, email, role, active, created_at';
+const PUBLIC_COLUMNS = 'id, name, email, role, active, monthly_goal, created_at';
 
 router.get('/', async (req, res, next) => {
   try {
@@ -77,6 +77,19 @@ router.patch('/:id', async (req, res, next) => {
       }
       params.push(req.body.active);
       sets.push(`active = $${params.length}`);
+    }
+    if ('monthly_goal' in (req.body ?? {})) {
+      const g = req.body.monthly_goal;
+      if (g === null || g === '') {
+        sets.push('monthly_goal = NULL');
+      } else {
+        const n = Number(g);
+        if (!Number.isInteger(n) || n < 0) {
+          return res.status(422).json({ error: 'Monthly goal must be a non-negative whole number.' });
+        }
+        params.push(n);
+        sets.push(`monthly_goal = $${params.length}`);
+      }
     }
     if (typeof req.body?.password === 'string' && req.body.password) {
       if (req.body.password.length < 8) {

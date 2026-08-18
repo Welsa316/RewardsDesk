@@ -2,6 +2,7 @@
 import { reactive, ref, computed } from 'vue';
 import Modal from './Modal.vue';
 import AddressFields from './AddressFields.vue';
+import DuplicateWarning from './DuplicateWarning.vue';
 import { useEnrollmentsStore } from '../stores/enrollments';
 
 const emit = defineEmits(['close', 'created']);
@@ -134,6 +135,13 @@ async function submit() {
         />
         <p v-if="fieldErrors.phone" id="wu_phone-error" class="field-error">{{ fieldErrors.phone }}</p>
       </div>
+
+      <DuplicateWarning
+        :email="form.email"
+        :phone="form.phone"
+        :first-name="form.first_name"
+        :last-name="form.last_name"
+      />
 
       <AddressFields :form="form" :errors="fieldErrors" />
 

@@ -56,6 +56,7 @@ export const enrollments = {
   patch: (id, payload) => http.patch(`/enrollments/${id}`, payload),
   remove: (id) => http.delete(`/enrollments/${id}`),
   purge: (days) => http.post('/enrollments/purge', { days }),
+  duplicates: (params) => http.get('/enrollments/duplicates', { params }),
 };
 
 export const stats = {

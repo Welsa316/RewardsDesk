@@ -142,7 +142,15 @@ onMounted(() => {
               :style="{ width: (r.enrolled / maxEnrolled) * 100 + '%' }"
             />
           </div>
-          <p class="mt-1 text-xs text-slate-warm">{{ r.processed }} processed</p>
+          <p class="mt-1 text-xs text-slate-warm">
+            {{ r.processed }} processed · {{ r.qualified }} qualified ·
+            today {{ r.today }} · MTD {{ r.month_enrolled }} · YTD {{ r.year_enrolled }}
+          </p>
+          <p v-if="r.monthly_goal" class="mt-0.5 text-xs" :class="r.goal_remaining === 0 ? 'text-green-700' : 'text-slate-warm'">
+            Monthly goal {{ r.month_enrolled }}/{{ r.monthly_goal }} ({{ r.goal_pct }}%)
+            <template v-if="r.goal_remaining > 0"> · {{ r.goal_remaining }} to go</template>
+            <template v-else> · goal met</template>
+          </p>
         </div>
       </div>
     </div>
