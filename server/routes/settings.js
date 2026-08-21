@@ -78,6 +78,13 @@ router.patch('/', async (req, res, next) => {
         if (!Number.isInteger(n) || n < 0) {
           return res.status(422).json({ error: `${key} must be a non-negative integer.` });
         }
+        // Card networks reject charges under $0.50, so a lower rate would make
+        // every checkout fail with an opaque Stripe error. Block it here.
+        if ((key === 'parking_hourly_cents' || key === 'parking_daily_cents') && n < 50) {
+          return res.status(422).json({
+            error: 'Parking rates must be at least $0.50 — card payments below that are rejected.',
+          });
+        }
         params.push(n);
         sets.push(`${key} = $${params.length}`);
       }

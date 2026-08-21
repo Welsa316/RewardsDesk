@@ -90,10 +90,16 @@ of payment truth.
 into this app): `/park?src=<lot>&name=&phone=&plate=&room=&rate=hourly|daily&qty=N`.
 All params optional; the form prefills and the server re-validates everything.
 
-**Local Stripe testing** — set `STRIPE_SECRET_KEY` (test mode) and either run
-`stripe listen --forward-to localhost:3000/api/parking/webhook` (put its `whsec_` in
-`STRIPE_WEBHOOK_SECRET`) or use any tool that signs events with your configured secret.
-Pay with card `4242 4242 4242 4242`.
+**Local Stripe testing** — set `STRIPE_SECRET_KEY` (test mode) and pay with card
+`4242 4242 4242 4242`. **No Stripe CLI or webhook forwarding is required locally**: if a
+webhook hasn't arrived, the guest status page reconciles directly with Stripe (it asks
+whether that checkout was paid and activates the session). The webhook remains the
+primary path in production; reconciliation is the safety net, and both share the same
+idempotency gate so a payment can only ever be applied once.
+
+To exercise the webhook itself locally, run
+`stripe listen --forward-to localhost:3000/api/parking/webhook` and put its `whsec_`
+in `STRIPE_WEBHOOK_SECRET`.
 
 ## Stack
 

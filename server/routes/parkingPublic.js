@@ -8,6 +8,7 @@ import {
   generateConfirmationCode,
   derivedStatusSql,
 } from '../lib/parking.js';
+import { reconcilePendingCheckouts } from '../lib/parkingActivation.js';
 import { validateParking } from '../middleware/validateParking.js';
 import {
   parkingCheckoutPerMinute,
@@ -131,7 +132,7 @@ router.post(
           success_url: `${base}/park/s/${created.session.status_token}?paid=1`,
           cancel_url: `${base}/park?canceled=1${lot ? `&src=${encodeURIComponent(lot)}` : ''}`,
           // Quick reaping of abandoned checkouts via checkout.session.expired.
-          expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+          expires_at: Math.floor(Date.now() / 1000) + 60 * 60, // Stripe requires >= 30 min; 60 leaves headroom for latency/clock skew
         });
       } catch (err) {
         await query(
@@ -167,15 +168,25 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
 
     const s = await parkingSettings();
     const statusSql = derivedStatusSql('ps', s.parking_expiring_soon_minutes);
-    const { rows } = await query(
-      `SELECT ps.id, ps.confirmation_code, ps.plate, ps.room, ps.kind, ps.rate_type,
+    const selectSession = `SELECT ps.id, ps.confirmation_code, ps.plate, ps.room, ps.kind, ps.rate_type,
               ps.starts_at, ps.paid_through, ${statusSql} AS status
          FROM parking_sessions ps
-        WHERE ps.status_token = $1`,
-      [token],
-    );
-    const session = rows[0];
+        WHERE ps.status_token = $1`;
+
+    let { rows } = await query(selectSession, [token]);
+    let session = rows[0];
     if (!session) return res.status(404).json({ error: 'Not found' });
+
+    // If money is still outstanding, ask Stripe directly rather than waiting on
+    // a webhook that may be delayed or (in local dev) undeliverable. Idempotent,
+    // and only ever runs for a session that hasn't been paid yet.
+    if (session.status === 'pending_payment') {
+      const changed = await reconcilePendingCheckouts(session.id);
+      if (changed) {
+        ({ rows } = await query(selectSession, [token]));
+        session = rows[0];
+      }
+    }
 
     const { rows: payRows } = await query(
       `SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND status='succeeded'), 0)::int
@@ -270,7 +281,7 @@ router.post(
           customer_email: session.email || undefined,
           success_url: `${base}/park/s/${token}?paid=1`,
           cancel_url: `${base}/park/s/${token}?canceled=1`,
-          expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+          expires_at: Math.floor(Date.now() / 1000) + 60 * 60, // Stripe requires >= 30 min; 60 leaves headroom for latency/clock skew
         });
       } catch (err) {
         await query(`UPDATE parking_payments SET status='failed', updated_at=now() WHERE id=$1`, [paymentId]);

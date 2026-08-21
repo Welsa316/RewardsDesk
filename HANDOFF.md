@@ -39,6 +39,11 @@ Migrations and seed run automatically on every deploy (idempotent).
      `whsec_` (used for local dev) is a different value and will NOT work in production.
 4. Enable customer receipt emails: Stripe dashboard → Settings → Emails → "Successful payments".
 
+**Note on webhooks:** the app does not depend on the webhook arriving. If one is delayed
+or missed, the guest's status page asks Stripe directly whether the payment succeeded and
+activates the session. Configure the webhook anyway — it is the fast path — but a webhook
+outage will not strand a paying guest.
+
 ## 4. Test → live switch checklist
 
 - [ ] `STRIPE_SECRET_KEY` → `sk_live_…`
