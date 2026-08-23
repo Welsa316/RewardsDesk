@@ -177,15 +177,16 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
     let session = rows[0];
     if (!session) return res.status(404).json({ error: 'Not found' });
 
-    // If money is still outstanding, ask Stripe directly rather than waiting on
-    // a webhook that may be delayed or (in local dev) undeliverable. Idempotent,
-    // and only ever runs for a session that hasn't been paid yet.
-    if (session.status === 'pending_payment') {
-      const changed = await reconcilePendingCheckouts(session.id);
-      if (changed) {
-        ({ rows } = await query(selectSession, [token]));
-        session = rows[0];
-      }
+    // Ask Stripe directly about any outstanding checkout rather than waiting on
+    // a webhook that may be delayed or (in local dev) undeliverable. This must
+    // cover EXTENSIONS too — those happen on an already-active session, so
+    // gating on the session being unpaid would leave a guest who paid to extend
+    // with no extra time. reconcilePendingCheckouts early-returns (one indexed
+    // query, no Stripe call) when nothing is pending, and is idempotent.
+    const changed = await reconcilePendingCheckouts(session.id);
+    if (changed) {
+      ({ rows } = await query(selectSession, [token]));
+      session = rows[0];
     }
 
     const { rows: payRows } = await query(
