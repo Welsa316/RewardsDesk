@@ -29,11 +29,31 @@ export default defineConfig({
       },
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
+        // Precache the guest shell only. A guest paying for parking should not
+        // have to download the staff app (queue, leaderboard, QR generator and
+        // its qrcode library) before their form is usable — and those chunks
+        // hold no value on a phone that will never sign in. Staff routes are
+        // fetched on demand and then served by the static-assets rule below.
+        globPatterns: [
+          '**/index.html',
+          '**/assets/index-*.{js,css}',
+          '**/assets/{Park,ParkStatus,Enroll,DurationPicker,ParkingStatusPill,AddressFields,format,whitelabel}-*.js',
+          'favicon.png',
+          'icons/parking-*.png',
+        ],
         runtimeCaching: [
           {
+            // Auth must never be served from cache. A cached 200 for
+            // /api/auth/me can sign the NEXT person on a shared front-desk
+            // tablet back in as the PREVIOUS user, with their role, once the
+            // network is slow enough to hit networkTimeoutSeconds.
+            // First match wins, so this must precede the generic /api rule.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/auth'),
+            handler: 'NetworkOnly',
+          },
+          {
             // Payment/status endpoints must never serve from cache — a stale
-            // "active" reading on the guest page is unacceptable. First match
-            // wins, so this must precede the generic /api rule.
+            // "active" reading on the guest page is unacceptable.
             urlPattern: ({ url }) => url.pathname.startsWith('/api/parking'),
             handler: 'NetworkOnly',
           },
@@ -43,10 +63,18 @@ export default defineConfig({
             options: {
               cacheName: 'api',
               networkTimeoutSeconds: 10,
+              // These responses carry guest PII. Bound how long a copy can sit
+              // on a shared device; signing out also purges the cache outright
+              // (see clearApiCache in stores/auth.js).
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
             },
           },
           {
-            urlPattern: ({ request }) =>
+            // Same-origin only: a cross-origin stylesheet (Google Fonts) comes
+            // back opaque, and CacheFirst cannot tell an opaque failure from a
+            // success — it would cache the failure permanently.
+            urlPattern: ({ url, request }) =>
+              url.origin === self.location.origin &&
               ['style', 'script', 'image', 'font'].includes(request.destination),
             handler: 'CacheFirst',
             options: {

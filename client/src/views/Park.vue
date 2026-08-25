@@ -5,7 +5,7 @@ import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { parkingPublic } from '../api';
 import DurationPicker from '../components/DurationPicker.vue';
-import { applyParkingChrome, restoreChrome } from '../utils/whitelabel';
+import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
 const route = useRoute();
 
@@ -50,7 +50,7 @@ onMounted(async () => {
     const { data } = await parkingPublic.config();
     brand.value = data.brand_name;
     rates.value = { hourly_cents: data.hourly_cents, daily_cents: data.daily_cents };
-    applyParkingChrome(`${data.brand_name} — Parking`);
+    applyParkingChrome(parkingTitle(data.brand_name));
   } catch {
     loadError.value = true;
   }

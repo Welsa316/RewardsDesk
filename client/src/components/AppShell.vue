@@ -3,12 +3,14 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useEnrollmentsStore } from '../stores/enrollments';
+import { useToastStore } from '../stores/toast';
 import { focusFirst, trapTabKey } from '../utils/focusTrap';
 import Sidebar from './Sidebar.vue';
 import TopBar from './TopBar.vue';
 
 const auth = useAuthStore();
 const enrollments = useEnrollmentsStore();
+const toast = useToastStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -63,8 +65,16 @@ const TITLES = {
 const pageTitle = computed(() => TITLES[route.name] || 'RewardsDesk');
 
 async function logout() {
-  await auth.logout();
-  router.push({ name: 'login' });
+  // The redirect must happen even if the network call fails — otherwise the UI
+  // sits half-signed-out on a page full of guest records, and a reload
+  // re-authenticates from the cookie the server never got to clear.
+  try {
+    await auth.logout();
+  } catch {
+    toast.error('Signed out on this device, but the server could not be reached.');
+  } finally {
+    router.push({ name: 'login' });
+  }
 }
 
 // Drawer focus management: focus moves in on open, stays trapped, Escape

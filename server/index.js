@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import authRoutes from './routes/auth.js';
 import intakeRoutes from './routes/intake.js';
@@ -85,8 +85,32 @@ app.use('/api', notFound);
 if (isProd) {
   const dist = resolve(here, '..', 'client', 'dist');
   if (existsSync(dist)) {
-    app.use(express.static(dist));
-    app.get('*', (req, res) => res.sendFile(join(dist, 'index.html')));
+    app.use(
+      express.static(dist, {
+        setHeaders: (res, filePath) => {
+          // Vite fingerprints everything under /assets, so those bytes can
+          // never change under a given name — cache them hard. index.html and
+          // the service worker must stay revalidated or clients pin to an old
+          // build.
+          const immutable = /[/\\]assets[/\\]/.test(filePath);
+          res.setHeader(
+            'Cache-Control',
+            immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+          );
+        },
+      }),
+    );
+
+    // The guest parking pages are white-label: the HTML they receive must not
+    // name the staff app at all, not even in the inline chrome script. One
+    // read at boot, one string swap per request.
+    const indexHtml = readFileSync(join(dist, 'index.html'), 'utf8');
+    const guestHtml = indexHtml.replace(/RewardsDesk/g, 'Parking');
+
+    app.get('*', (req, res) => {
+      const guest = req.path === '/park' || req.path.startsWith('/park/');
+      res.type('html').set('Cache-Control', 'no-cache').send(guest ? guestHtml : indexHtml);
+    });
   } else {
     console.warn('client/dist not found — run `npm run build` before starting in production.');
   }

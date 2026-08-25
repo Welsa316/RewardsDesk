@@ -7,7 +7,7 @@ import { parkingPublic } from '../api';
 import ParkingStatusPill from '../components/ParkingStatusPill.vue';
 import DurationPicker from '../components/DurationPicker.vue';
 import { formatMoney, formatDateTime, formatCountdown } from '../utils/format';
-import { applyParkingChrome, restoreChrome } from '../utils/whitelabel';
+import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
 const route = useRoute();
 const token = route.params.token;
@@ -38,7 +38,7 @@ async function load() {
     const { data: d } = await parkingPublic.status(token);
     data.value = d;
     serverOffsetMs = Date.parse(d.server_now) - Date.now();
-    applyParkingChrome(`${d.brand_name} — Parking ${d.confirmation_code}`);
+    applyParkingChrome(parkingTitle(d.brand_name, d.confirmation_code));
     return d;
   } catch (err) {
     if (err?.response?.status === 404) notFound.value = true;

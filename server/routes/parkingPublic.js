@@ -45,6 +45,35 @@ router.get('/public/parking-config', async (req, res, next) => {
   }
 });
 
+// Web app manifest for the guest parking pages. Served dynamically so an
+// installed parking app carries the configured parking brand and neutral
+// icons — never the hotel's name, the rewards name, or the hotel wordmark.
+// The static /manifest.webmanifest is the staff app's and must not be used here.
+router.get('/public/parking-manifest', async (req, res, next) => {
+  try {
+    const s = await parkingSettings();
+    res.type('application/manifest+json');
+    res.set('Cache-Control', 'no-cache');
+    res.json({
+      name: s.brand_name,
+      short_name: s.brand_name.length > 12 ? 'Parking' : s.brand_name,
+      description: 'Pay for parking and check your time.',
+      theme_color: '#0F1B2D',
+      background_color: '#FBF8F3',
+      display: 'standalone',
+      start_url: '/park',
+      scope: '/park',
+      icons: [
+        { src: '/icons/parking-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icons/parking-512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/icons/parking-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Insert a session with a fresh confirmation code, retrying on the (rare)
 // unique collision.
 async function insertSession(client, data, values) {
