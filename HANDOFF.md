@@ -71,7 +71,17 @@ outage will not strand a paying guest.
 1. Railway → service → Settings → Domains → add `<your-domain>`.
 2. Add the CNAME at the registrar as instructed by Railway.
 3. Update `PUBLIC_BASE_URL` (and `COOKIE_DOMAIN` if used) and redeploy.
-4. Re-print QR codes after the domain changes (they embed the URL).
+4. **Set up the domain BEFORE printing any signs.** Printed codes embed whatever
+   `PUBLIC_BASE_URL` was set to. Railway's generated address contains the app's
+   name, so a guest who glances at their address bar after scanning a parking
+   sign would see it — which defeats the white-label pages. The QR page refuses
+   to let you print against a temporary hosting address for this reason.
+
+   **If signs are already out there on an old address:** leave the old domain
+   attached in Railway and they keep working. Verified — a guest arriving on the
+   old host gets the full white-label page, and Stripe returns them to the new
+   domain after payment, so they end up migrated without noticing. The old signs
+   only die if you detach that domain or move off the platform entirely.
 
 ## 6. Backups & recovery
 

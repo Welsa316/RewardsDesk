@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { settings as api } from '../api';
 import QrCard from '../components/QrCard.vue';
 import PrefillLinkBuilder from '../components/PrefillLinkBuilder.vue';
@@ -13,6 +13,12 @@ const loadError = ref('');
 // generated from localhost or a preview URL is dead the moment it is mounted.
 const baseUrl = ref(window.location.origin);
 const originMismatch = ref(false);
+
+// Platform-generated hostnames are fine to develop against and a trap to print:
+// they carry the service's name (so a parking sign would show "rewardsdesk" in
+// the guest's address bar), and they are not yours to keep.
+const TEMPORARY_HOSTS = /(^https?:\/\/localhost)|(\.up\.railway\.app)|(\.railway\.app)|(\.vercel\.app)|(\.onrender\.com)|(\.netlify\.app)|(\.fly\.dev)|(\d+\.\d+\.\d+\.\d+)/i;
+const baseUrlIsTemporary = computed(() => TEMPORARY_HOSTS.test(baseUrl.value));
 const currentOrigin = window.location.origin;
 
 async function load() {
@@ -46,7 +52,25 @@ onMounted(load);
       These codes point at <span class="font-medium text-ink">{{ baseUrl }}</span>.
     </p>
     <div
-      v-if="originMismatch"
+      v-if="baseUrlIsTemporary"
+      role="alert"
+      class="mt-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <p class="font-semibold">Don't print these yet.</p>
+      <p class="mt-1">
+        These codes point at <strong>{{ baseUrl }}</strong>, which is a temporary hosting address.
+        Two problems: it isn't yours to keep, and a guest who looks at their address bar after
+        scanning will see the app's name — which defeats the point of the white-label parking pages.
+      </p>
+      <p class="mt-1">
+        Add your own domain, set <code>PUBLIC_BASE_URL</code> to it, redeploy, then print. Signs
+        already printed against an old address keep working as long as you leave the old domain
+        attached.
+      </p>
+    </div>
+
+    <div
+      v-else-if="originMismatch"
       role="alert"
       class="mt-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
     >
