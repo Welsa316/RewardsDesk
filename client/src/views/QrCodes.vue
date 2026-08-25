@@ -8,7 +8,12 @@ const sources = ref([]);
 const lots = ref([]);
 const loading = ref(true);
 const loadError = ref('');
-const baseUrl = window.location.origin;
+// These URLs get PRINTED and stuck to a wall, so they must be the canonical
+// domain — not whatever host the admin happened to open the page from. A sign
+// generated from localhost or a preview URL is dead the moment it is mounted.
+const baseUrl = ref(window.location.origin);
+const originMismatch = ref(false);
+const currentOrigin = window.location.origin;
 
 async function load() {
   loading.value = true;
@@ -17,6 +22,10 @@ async function load() {
     const { data } = await api.get();
     sources.value = data.sources || [];
     lots.value = data.parking_lots || [];
+    if (data.public_base_url) {
+      baseUrl.value = data.public_base_url.replace(/\/+$/, '');
+      originMismatch.value = baseUrl.value !== window.location.origin;
+    }
   } catch {
     loadError.value = 'Could not load sources.';
   } finally {
@@ -32,6 +41,19 @@ onMounted(load);
     <p class="text-sm text-slate-warm">
       Generic codes to print, and a prefilled-link builder for per-guest messages.
     </p>
+
+    <p class="mt-3 text-sm text-slate-warm">
+      These codes point at <span class="font-medium text-ink">{{ baseUrl }}</span>.
+    </p>
+    <div
+      v-if="originMismatch"
+      role="alert"
+      class="mt-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+    >
+      You're viewing this from <strong>{{ currentOrigin }}</strong>, but the codes are being built
+      for <strong>{{ baseUrl }}</strong> (the configured <code>PUBLIC_BASE_URL</code>). That's the
+      address that will be printed — check it's the one guests should reach before printing.
+    </div>
 
     <section class="mt-6">
       <h2 class="font-serif text-lg text-ink">Printable QR codes</h2>

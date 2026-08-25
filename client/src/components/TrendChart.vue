@@ -7,7 +7,10 @@ const W = 720;
 const H = 220;
 const PAD = 10;
 
+// Floor of 1 so the bars have a scale to draw against, but the *reported*
+// peak has to be the real one — "0 enrolled · peak 1/day" is a contradiction.
 const max = computed(() => Math.max(1, ...props.data.map((d) => d.count)));
+const peak = computed(() => Math.max(0, ...props.data.map((d) => d.count)));
 
 const points = computed(() => {
   const n = props.data.length;
@@ -56,7 +59,8 @@ const total = computed(() => props.data.reduce((s, d) => s + d.count, 0));
       />
     </svg>
     <p class="mt-2 text-center text-xs text-slate-warm">
-      {{ total }} enrolled in this period · peak {{ max }}/day
+      <template v-if="total">{{ total }} enrolled in this period · peak {{ peak }}/day</template>
+      <template v-else>No enrollments in this period</template>
     </p>
   </div>
 </template>

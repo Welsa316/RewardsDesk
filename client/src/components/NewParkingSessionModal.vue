@@ -170,7 +170,7 @@ async function submit() {
             v-model="form.comp_authorized_by"
             class="input"
             :class="{ 'input-error': fieldErrors.comp_authorized_by }"
-            placeholder="e.g. GM Sandra"
+            placeholder="Name or title of who approved it"
           />
           <p v-if="fieldErrors.comp_authorized_by" class="field-error">{{ fieldErrors.comp_authorized_by }}</p>
         </div>

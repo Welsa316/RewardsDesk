@@ -4,6 +4,7 @@ import { invalidateSettings } from '../lib/settings.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr } from '../lib/validation.js';
+import { publicBaseUrl } from '../lib/stripe.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -25,7 +26,10 @@ function isValidTimezone(tz) {
 router.get('/', async (req, res, next) => {
   try {
     const { rows } = await query(`SELECT ${COLUMNS} FROM settings WHERE id = 1`);
-    res.json(rows[0]);
+    // The canonical origin, so printed QR codes carry the real domain rather
+    // than whatever host the admin happened to generate them from. A sign
+    // printed from localhost or a staging URL is permanently dead.
+    res.json({ ...rows[0], public_base_url: publicBaseUrl() });
   } catch (err) {
     next(err);
   }

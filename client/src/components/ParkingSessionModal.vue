@@ -7,6 +7,7 @@ import { parking } from '../api';
 import { useToastStore } from '../stores/toast';
 import { useAuthStore } from '../stores/auth';
 import { formatMoney, formatDateTime } from '../utils/format';
+import { copyText } from '../utils/clipboard';
 
 const props = defineProps({
   sessionId: { type: Number, required: true },
@@ -166,6 +167,18 @@ async function submitRefund() {
   }
 }
 
+const guestLink = computed(() =>
+  s.value?.status_token ? `${window.location.origin}/park/s/${s.value.status_token}` : '',
+);
+const linkCopied = ref(false);
+
+async function copyGuestLink() {
+  const ok = await copyText(guestLink.value);
+  if (!ok) return toast.error('Could not copy the link.');
+  linkCopied.value = true;
+  setTimeout(() => (linkCopied.value = false), 1500);
+}
+
 function refundableCents(payment) {
   if (payment.type !== 'charge' || payment.status !== 'succeeded' || payment.amount_cents === 0) return 0;
   const refunded = (s.value?.payments || [])
@@ -226,6 +239,22 @@ function refundableCents(payment) {
           <dd class="text-ink">{{ formatDateTime(s.checked_out_at) }} · {{ s.checked_out_by_name }}</dd>
         </div>
       </dl>
+
+      <!-- The guest's own link. It was already in this payload and simply
+           never rendered, so a guest who lost it had no way back and neither
+           did the desk — an expiring car became a desk interruption or a tow. -->
+      <div v-if="s.status_token" class="rounded-xl border border-sand bg-warm/40 p-3">
+        <p class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Guest link</p>
+        <div class="mt-1.5 flex items-center gap-2">
+          <code class="min-w-0 flex-1 truncate text-xs text-ink">{{ guestLink }}</code>
+          <button type="button" class="btn btn-ghost shrink-0 !py-1.5 text-sm" @click="copyGuestLink">
+            {{ linkCopied ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+        <p class="mt-1 text-xs text-slate-warm">
+          Send this to the guest so they can check their time or add more themselves.
+        </p>
+      </div>
 
       <!-- Actions -->
       <div v-if="canExtend || canDepart" class="flex gap-2">
