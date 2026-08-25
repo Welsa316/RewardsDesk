@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
-import { getStripe } from '../lib/stripe.js';
+import { getStripe, publicBaseUrl } from '../lib/stripe.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
 import {
   priceCents,
@@ -156,7 +156,16 @@ router.get('/sessions/:id', async (req, res, next) => {
       ),
     ]);
 
-    res.json({ ...session, payments, notes });
+    // Build the guest's link from the canonical origin, not from whatever host
+    // the agent happens to be on — a staff member working from the platform's
+    // generated address would otherwise text a guest a URL carrying the app's
+    // name, which is the same white-label leak through a different door.
+    res.json({
+      ...session,
+      guest_url: session.status_token ? `${publicBaseUrl()}/park/s/${session.status_token}` : null,
+      payments,
+      notes,
+    });
   } catch (err) {
     next(err);
   }

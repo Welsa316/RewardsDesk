@@ -167,9 +167,9 @@ async function submitRefund() {
   }
 }
 
-const guestLink = computed(() =>
-  s.value?.status_token ? `${window.location.origin}/park/s/${s.value.status_token}` : '',
-);
+// Server-built from PUBLIC_BASE_URL so the link a guest receives always carries
+// the public domain, whichever host the agent is signed in on.
+const guestLink = computed(() => s.value?.guest_url || '');
 const linkCopied = ref(false);
 
 async function copyGuestLink() {
@@ -243,7 +243,7 @@ function refundableCents(payment) {
       <!-- The guest's own link. It was already in this payload and simply
            never rendered, so a guest who lost it had no way back and neither
            did the desk — an expiring car became a desk interruption or a tow. -->
-      <div v-if="s.status_token" class="rounded-xl border border-sand bg-warm/40 p-3">
+      <div v-if="guestLink" class="rounded-xl border border-sand bg-warm/40 p-3">
         <p class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Guest link</p>
         <div class="mt-1.5 flex items-center gap-2">
           <code class="min-w-0 flex-1 truncate text-xs text-ink">{{ guestLink }}</code>
