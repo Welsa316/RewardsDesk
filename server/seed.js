@@ -33,21 +33,46 @@ async function seed() {
     return;
   }
 
-  // Upsert the admin. Re-running resets the admin to the current env values,
-  // keeping the owner login in sync with the deploy config.
+  // This runs on EVERY deploy (railway.json chains migrate && seed && start),
+  // so it must not overwrite anything the owner has since changed in the app.
+  // Creating the account is idempotent; re-applying the env password is not —
+  // it would silently revert a password changed in-app back to whatever is in
+  // Railway, and reactivate an admin who was deliberately deactivated.
   const hash = await bcrypt.hash(password, 12);
   const { rows } = await pool.query(
     `INSERT INTO users (name, email, password_hash, role, active)
      VALUES ($1, $2, $3, 'admin', TRUE)
-     ON CONFLICT (email) DO UPDATE
-       SET name = EXCLUDED.name,
-           password_hash = EXCLUDED.password_hash,
-           role = 'admin',
-           active = TRUE
+     ON CONFLICT (email) DO NOTHING
      RETURNING id, email`,
     [name, email, hash],
   );
-  console.log(`  ✓ admin ready: ${rows[0].email} (id ${rows[0].id})`);
+
+  if (rows[0]) {
+    console.log(`  ✓ admin created: ${rows[0].email} (id ${rows[0].id})`);
+    return;
+  }
+
+  // Recovery hatch for a lost owner password. Explicit and one-shot: set it,
+  // deploy, sign in, then remove the variable.
+  if (/^(1|true|yes)$/i.test(process.env.ADMIN_FORCE_RESET || '')) {
+    const { rows: reset } = await pool.query(
+      `UPDATE users
+          SET name = $1, password_hash = $2, role = 'admin', active = TRUE
+        WHERE email = $3
+        RETURNING id, email`,
+      [name, hash, email],
+    );
+    console.warn(
+      `  ⚠ ADMIN_FORCE_RESET is set — reset the password and reactivated ${reset[0].email} ` +
+        '(id ' + reset[0].id + '). Remove ADMIN_FORCE_RESET from the environment now.',
+    );
+    return;
+  }
+
+  console.log(
+    `  • admin ${email} already exists — left untouched. ` +
+      'Change the password from the Staff page, or set ADMIN_FORCE_RESET=true for one deploy to reset it.',
+  );
 }
 
 seed()

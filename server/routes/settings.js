@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query } from '../db/index.js';
+import { invalidateSettings } from '../lib/settings.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr } from '../lib/validation.js';
@@ -104,6 +105,7 @@ router.patch('/', async (req, res, next) => {
       `UPDATE settings SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING ${COLUMNS}`,
       params,
     );
+    invalidateSettings(); // a saved change must be visible on the next request
     res.json(rows[0]);
   } catch (err) {
     next(err);

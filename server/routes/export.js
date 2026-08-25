@@ -3,6 +3,7 @@ import { query } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { buildListQuery } from '../lib/enrollmentFilters.js';
+import { hotelTimezone } from '../lib/settings.js';
 
 const router = Router();
 // Bulk PII export is owner-level per the spec (admin: "export CSV") — staff
@@ -48,7 +49,7 @@ function csvCell(v) {
 // GET /api/export — CSV of all records matching the current list filters.
 router.get('/', async (req, res, next) => {
   try {
-    const { whereSql, params } = buildListQuery(req.query);
+    const { whereSql, params } = buildListQuery(req.query, await hotelTimezone());
 
     const { rows: countRows } = await query(
       `SELECT count(*)::int AS total FROM enrollments e WHERE ${whereSql}`,

@@ -68,7 +68,7 @@ router.get('/dashboard', async (req, res, next) => {
         `SELECT h.id, h.action, h.new_status, h.detail, h.changed_at, u.name AS changed_by_name,
                 e.id AS enrollment_id, e.first_name, e.last_name
            FROM status_history h
-           JOIN enrollments e ON e.id = h.enrollment_id
+           JOIN enrollments e ON e.id = h.enrollment_id AND e.deleted_at IS NULL
            LEFT JOIN users u ON u.id = h.changed_by
           ORDER BY h.changed_at DESC, h.id DESC
           LIMIT 12`,

@@ -19,7 +19,12 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const first = (v) => (Array.isArray(v) ? v[0] : v);
 
 // Builds a parameterized WHERE clause shared by the list and CSV export.
-export function buildListQuery(raw) {
+// `tz` is the hotel's timezone (settings.timezone). Date filters are calendar
+// days at the property, not in whatever timezone the database happens to run
+// in — otherwise "yesterday" on a New Orleans front desk silently means 19:00
+// the previous evening through 19:00 today, and the Best Western credit CSV
+// goes out with the wrong rows in it.
+export function buildListQuery(raw, tz = 'UTC') {
   const q = {
     status: first(raw.status),
     source: first(raw.source),
@@ -54,13 +59,19 @@ export function buildListQuery(raw) {
         `OR e.email ILIKE $${i} OR e.phone ILIKE $${i})`,
     );
   }
-  if (q.from && DATE_RE.test(q.from)) {
-    params.push(q.from);
-    where.push(`e.created_at >= $${params.length}`);
-  }
-  if (q.to && DATE_RE.test(q.to)) {
-    params.push(q.to);
-    where.push(`e.created_at < ($${params.length}::date + INTERVAL '1 day')`);
+  if (q.from || q.to) {
+    params.push(tz);
+    const tzi = params.length;
+    if (q.from && DATE_RE.test(q.from)) {
+      params.push(q.from);
+      where.push(`e.created_at >= ($${params.length}::date::timestamp AT TIME ZONE $${tzi})`);
+    }
+    if (q.to && DATE_RE.test(q.to)) {
+      params.push(q.to);
+      where.push(
+        `e.created_at < (($${params.length}::date + INTERVAL '1 day')::timestamp AT TIME ZONE $${tzi})`,
+      );
+    }
   }
 
   return { whereSql: where.join(' AND '), params };

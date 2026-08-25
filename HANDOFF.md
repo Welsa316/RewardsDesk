@@ -20,13 +20,16 @@ Everything the hotel needs to own and operate the app: rewards + guest parking.
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (attached plugin reference) |
 | `JWT_SECRET` | long random string (`openssl rand -base64 48`) |
 | `NODE_ENV` | `production` |
-| `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | owner login (seed refuses weak/default passwords) |
+| `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | owner login, applied on first create only (seed refuses weak/default passwords) |
+| `ADMIN_FORCE_RESET` | set to `true` for one deploy to reset a lost owner password, then remove |
 | `STRIPE_SECRET_KEY` | `sk_live_…` (test: `sk_test_…`) |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` from the **dashboard webhook endpoint** (see below) |
 | `PUBLIC_BASE_URL` | `https://<your-domain>` — used in Stripe success/cancel URLs |
 | `COOKIE_DOMAIN` | only if using a custom domain for the app |
 
-Migrations and seed run automatically on every deploy (idempotent).
+Migrations and seed run automatically on every deploy (idempotent). The seed creates
+the owner account the first time and then leaves it alone — a password changed in the
+app survives redeploys, and a deactivated admin stays deactivated.
 
 ## 3. Stripe setup (one-time)
 

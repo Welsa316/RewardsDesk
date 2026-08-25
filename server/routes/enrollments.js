@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr, isEmail, isPhone, asBool } from '../lib/validation.js';
 import { STATUSES, QUALIFICATIONS, SORT_COLUMNS, buildListQuery } from '../lib/enrollmentFilters.js';
+import { hotelTimezone } from '../lib/settings.js';
 import { logAudit, AUDIT_ACTIONS } from '../lib/audit.js';
 
 const router = Router();
@@ -12,7 +13,7 @@ router.use(requireAuth);
 // GET /api/enrollments — filtered, paginated, sorted list
 router.get('/', async (req, res, next) => {
   try {
-    const { whereSql, params } = buildListQuery(req.query);
+    const { whereSql, params } = buildListQuery(req.query, await hotelTimezone());
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
     const offset = (page - 1) * pageSize;

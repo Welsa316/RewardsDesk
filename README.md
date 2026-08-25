@@ -183,7 +183,8 @@ package.json      root scripts (install / dev / migrate / seed / build / start)
 | `JWT_SECRET`     | yes             | Long random string; signs the auth cookie.                    |
 | `ADMIN_NAME`     | seed only       | Initial owner account name.                                   |
 | `ADMIN_EMAIL`    | seed only       | Initial owner login email.                                    |
-| `ADMIN_PASSWORD` | seed only       | Initial owner password (re-seeding resets it).                |
+| `ADMIN_PASSWORD` | seed only       | Owner password, applied only when the account is first created. |
+| `ADMIN_FORCE_RESET` | recovery     | `true` for one deploy to reset the owner password from `ADMIN_PASSWORD`. Remove it afterwards. |
 | `NODE_ENV`       | yes (prod)      | `production` enables secure cookies + serves the built app.   |
 | `PORT`           | no              | Defaults to `3000`. Railway injects this.                     |
 | `CLIENT_ORIGIN`  | dev only        | Vite origin allowed by CORS (default `http://localhost:5173`).|
@@ -217,9 +218,14 @@ migrations first), and a `/api/health` healthcheck.
      and exposes `/api`)
    - **healthcheck:** `/api/health`
 4. Make sure `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` are set **before** the
-   first deploy — the start command seeds the owner account from them automatically
-   (both migrate and seed are idempotent, so they run safely on every deploy). To change
-   the owner login later, update those vars and redeploy.
+   first deploy — the start command creates the owner account from them automatically
+   (both migrate and seed are idempotent, so they run safely on every deploy).
+
+   Once that account exists the seed **never touches it again**: it will not re-apply
+   the env password over one changed in-app, and it will not reactivate an admin who was
+   deliberately deactivated. Change the password from the Staff page. If the owner
+   password is lost, set `ADMIN_FORCE_RESET=true` for a single deploy — it resets and
+   reactivates the account from `ADMIN_PASSWORD` — then remove the variable.
 
 ## Privacy
 
