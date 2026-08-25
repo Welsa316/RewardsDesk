@@ -4,11 +4,13 @@ import { RouterLink } from 'vue-router';
 import { parking } from '../api';
 import { useAuthStore } from '../stores/auth';
 import { useToastStore } from '../stores/toast';
+import { downloadCsv, csvErrorMessage } from '../utils/download';
 import StatCard from '../components/StatCard.vue';
 import { formatMoney } from '../utils/format';
 
 const auth = useAuthStore();
 const toast = useToastStore();
+const exporting = ref(false);
 
 const dash = ref(null);
 const revenue = ref(null);
@@ -39,8 +41,20 @@ async function load() {
 }
 onMounted(load);
 
-function exportCsv() {
-  window.location.href = '/api/parking/export';
+// The button lives inside the date-range card, so it exports that range —
+// it used to ignore it and dump every session ever recorded.
+async function exportCsv() {
+  exporting.value = true;
+  try {
+    const params = {};
+    if (range.from) params.from = range.from;
+    if (range.to) params.to = range.to;
+    await downloadCsv('/parking/export', params, 'parking-sessions.csv');
+  } catch (err) {
+    toast.error(await csvErrorMessage(err, 'Could not export. Please try again.'));
+  } finally {
+    exporting.value = false;
+  }
 }
 
 async function applyRange() {
@@ -90,7 +104,13 @@ async function applyRange() {
               This month {{ formatMoney(revenue.buckets.month_cents) }}
             </p>
           </div>
-          <button v-if="auth.isAdmin" class="btn btn-secondary !py-2" aria-label="Export sessions CSV" @click="exportCsv">
+          <button
+            v-if="auth.isAdmin"
+            class="btn btn-secondary !py-2"
+            :disabled="exporting"
+            aria-label="Export sessions CSV"
+            @click="exportCsv"
+          >
             Export CSV
           </button>
         </div>

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { enrollments as api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import { useToastStore } from '../stores/toast';
+import { downloadCsv, csvErrorMessage } from '../utils/download';
 import StatusPill from '../components/StatusPill.vue';
 import QualificationPill from '../components/QualificationPill.vue';
 import {
@@ -18,6 +19,9 @@ import {
 const router = useRouter();
 const auth = useAuthStore();
 const toast = useToastStore();
+const exporting = ref(false);
+const loadError = ref('');
+let loadSeq = 0;
 
 // Mirrors the server-side export cap; over this we prompt for narrower filters.
 const EXPORT_CAP = 10000;
@@ -51,15 +55,22 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize))
 async function load() {
   loading.value = true;
   try {
-    const params = { page: page.value, pageSize, sort: 'created_at', dir: 'desc' };
-    for (const k of ['q', 'status', 'source', 'from', 'to', 'qualification']) {
-      if (filters[k]) params[k] = filters[k];
-    }
+    const params = {
+      page: page.value, pageSize, sort: 'created_at', dir: 'desc', ...activeFilters(),
+    };
+    const mine = ++loadSeq;
     const { data } = await api.list(params);
+    // A slower earlier request must not overwrite a newer one — typing "ABC"
+    // then "1234" can otherwise leave the list showing matches for "ABC".
+    if (mine !== loadSeq) return;
     rows.value = data.data;
     total.value = data.total;
-  } catch {
-    toast.error('Could not load enrollments.');
+    loadError.value = '';
+  } catch (err) {
+    if (err?.response?.status === 401) return; // interceptor is redirecting
+    loadError.value = 'Could not load enrollments.';
+    rows.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
@@ -87,17 +98,34 @@ function open(id) {
   router.push({ name: 'enrollment-detail', params: { id } });
 }
 
-function exportCsv() {
+// One source of truth for which filters are active, so the list request, the
+// row count and the export can never disagree about what is being looked at.
+// `qualification` was missing from the export's list: an owner could filter to
+// a dozen disqualified records, see the count pass the cap check, and download
+// every enrolled record's name, email, phone and home address instead.
+function activeFilters() {
+  const out = {};
+  for (const k of ['q', 'status', 'qualification', 'source', 'from', 'to']) {
+    if (filters[k]) out[k] = filters[k];
+  }
+  return out;
+}
+
+async function exportCsv() {
   if (total.value > EXPORT_CAP) {
     toast.error(
       `This export matches ${total.value} records — over the ${EXPORT_CAP} limit. Narrow the filters (e.g. a date range) and export in batches.`,
     );
     return;
   }
-  const params = new URLSearchParams();
-  for (const k of ['q', 'status', 'source', 'from', 'to']) if (filters[k]) params.set(k, filters[k]);
-  const qs = params.toString();
-  window.location.href = '/api/export' + (qs ? `?${qs}` : '');
+  exporting.value = true;
+  try {
+    await downloadCsv('/export', activeFilters(), 'enrollments.csv');
+  } catch (err) {
+    toast.error(await csvErrorMessage(err, 'Could not export. Please try again.'));
+  } finally {
+    exporting.value = false;
+  }
 }
 
 onMounted(load);
@@ -107,7 +135,13 @@ onMounted(load);
   <div class="mx-auto max-w-5xl">
     <div class="mb-5 flex items-center justify-between gap-3">
       <h1 class="font-serif text-2xl text-ink">Enrollments</h1>
-      <button v-if="auth.isAdmin" class="btn btn-secondary !py-2" aria-label="Export CSV" @click="exportCsv">
+      <button
+        v-if="auth.isAdmin"
+        class="btn btn-secondary !py-2"
+        :disabled="exporting"
+        aria-label="Export CSV"
+        @click="exportCsv"
+      >
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" />
         </svg>
@@ -139,6 +173,14 @@ onMounted(load);
 
     <div v-if="loading" class="space-y-2">
       <div v-for="i in 5" :key="i" class="h-16 animate-pulse rounded-xl border border-sand bg-white/60" />
+    </div>
+
+    <!-- A failed load must not read as "this guest has no record" — that is how
+         a clerk ends up re-enrolling someone who is already in the system. -->
+    <div v-else-if="loadError" class="card p-10 text-center">
+      <p class="font-serif text-lg text-ink">{{ loadError }}</p>
+      <p class="mt-1 text-sm text-slate-warm">This is a connection problem, not an empty result.</p>
+      <button class="btn btn-secondary mt-4" @click="load">Try again</button>
     </div>
 
     <div v-else-if="rows.length === 0" class="card p-10 text-center">

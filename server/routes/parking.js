@@ -612,7 +612,7 @@ const EXPORT_COLUMNS = [
   ['quantity', 'Qty'],
   ['starts_at', 'Entered'],
   ['paid_through', 'Paid through'],
-  ['net_paid_cents', 'Net paid (cents)'],
+  ['net_paid_cents', 'Net paid'],
   ['comp_reason', 'Comp reason'],
   ['comp_authorized_by', 'Comp authorized by'],
   ['created_by_name', 'Created by'],
@@ -621,20 +621,56 @@ const EXPORT_COLUMNS = [
   ['created_at', 'Created'],
 ];
 
-function csvCell(v) {
+// The owner opens this in Excel, so money is dollars and timestamps are local
+// calendar time — not raw cents and UTC ISO strings.
+function csvCell(v, tz) {
   if (v === null || v === undefined) return '';
-  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(v).reduce((a, p) => ((a[p.type] = p.value), a), {});
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+  }
   const s = String(v);
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
+
+function csvMoney(cents) {
+  if (cents === null || cents === undefined) return '';
+  return (Number(cents) / 100).toFixed(2);
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 router.get('/export', requireAdmin, async (req, res, next) => {
   try {
     const cfg = await parkingConfig();
     const statusSql = derivedStatusSql('ps', cfg.parking_expiring_soon_minutes);
+    const tz = cfg.timezone || 'UTC';
+
+    // The button sits inside the date-range card, so it must filter by it.
+    // Calendar days at the property, matching every other report.
+    const first = (v) => (Array.isArray(v) ? v[0] : v);
+    const from = first(req.query.from);
+    const to = first(req.query.to);
+    const where = [];
+    const params = [];
+    if (from && DATE_RE.test(from)) {
+      params.push(tz, from);
+      where.push(`ps.created_at >= ($${params.length}::date::timestamp AT TIME ZONE $${params.length - 1})`);
+    }
+    if (to && DATE_RE.test(to)) {
+      params.push(tz, to);
+      where.push(
+        `ps.created_at < (($${params.length}::date + INTERVAL '1 day')::timestamp AT TIME ZONE $${params.length - 1})`,
+      );
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     const { rows: countRows } = await query(
-      `SELECT count(*)::int AS total FROM parking_sessions ps`,
+      `SELECT count(*)::int AS total FROM parking_sessions ps ${whereSql}`,
+      params,
     );
     const total = countRows[0].total;
     if (total > EXPORT_CAP) {
@@ -651,16 +687,23 @@ router.get('/export', requireAdmin, async (req, res, next) => {
          ${NET_PAID_JOIN}
          LEFT JOIN users cu ON cu.id = ps.created_by
          LEFT JOIN users xu ON xu.id = ps.checked_out_by
+         ${whereSql}
         ORDER BY ps.created_at DESC, ps.id DESC`,
+      params,
     );
 
-    const header = EXPORT_COLUMNS.map(([, label]) => csvCell(label)).join(',');
-    const body = rows.map((r) => EXPORT_COLUMNS.map(([key]) => csvCell(r[key])).join(','));
+    const header = EXPORT_COLUMNS.map(([, label]) => csvCell(label, tz)).join(',');
+    const body = rows.map((r) =>
+      EXPORT_COLUMNS.map(([key]) =>
+        key === 'net_paid_cents' ? csvMoney(r[key]) : csvCell(r[key], tz),
+      ).join(','),
+    );
     const csv = [header, ...body].join('\r\n');
 
+    const range = from || to ? `-${from || 'start'}_${to || 'today'}` : '';
     const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="parking-sessions-${stamp}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="parking-sessions${range || `-${stamp}`}.csv"`);
     res.setHeader('X-Total-Count', String(total));
     res.send(csv);
   } catch (err) {
