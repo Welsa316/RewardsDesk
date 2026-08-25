@@ -26,13 +26,19 @@ const submitting = ref(false);
 const formError = ref('');
 const fieldErrors = reactive({});
 
-const canSubmit = computed(() => form.consent && !submitting.value);
+// Not gated on consent — a Save button that is simply inert tells the agent
+// nothing while a guest waits at the desk. Run the submit and say what is wrong.
+const canSubmit = computed(() => !submitting.value);
 
 async function submit() {
   formError.value = '';
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
   if (!form.first_name.trim()) fieldErrors.first_name = 'Required.';
   if (!form.last_name.trim()) fieldErrors.last_name = 'Required.';
+  if (!form.email.trim() && !form.phone.trim()) {
+    fieldErrors.email = 'Add an email or phone — Best Western needs one to create the account.';
+  }
+  if (!form.consent) fieldErrors.consent = 'The guest must agree before you can save this.';
   if (Object.keys(fieldErrors).length) return;
 
   submitting.value = true;
@@ -54,7 +60,7 @@ async function submit() {
 </script>
 
 <template>
-  <Modal title="Add walk-up enrollment" @close="emit('close')">
+  <Modal title="Add walk-up enrollment" :dismissible="false" :busy="submitting" @close="emit('close')">
     <form class="space-y-4" novalidate @submit.prevent="submit">
       <p
         v-if="formError"
@@ -152,9 +158,10 @@ async function submit() {
           class="mt-0.5 h-5 w-5 shrink-0 rounded border-sand text-terracotta focus:ring-terracotta/40"
         />
         <span class="text-sm text-slate-warm">
-          The guest authorizes enrollment in Best Western Rewards and contact about their membership.
+          The guest authorizes us to use these details to enroll them in Best Western Rewards.
         </span>
       </label>
+      <p v-if="fieldErrors.consent" class="field-error -mt-2">{{ fieldErrors.consent }}</p>
 
       <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-sand bg-warm/40 px-4 py-3">
         <input

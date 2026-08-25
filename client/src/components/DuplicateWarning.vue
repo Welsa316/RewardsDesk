@@ -2,7 +2,7 @@
 // Warns staff that this guest may already have a record — shown BEFORE they
 // re-type someone into the Best Western terminal. Advisory only; it never
 // blocks, because a real second guest can share a name.
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { enrollments as api } from '../api';
 import { statusLabel, formatDateTime } from '../utils/format';
 
@@ -16,8 +16,10 @@ const props = defineProps({
 
 const matches = ref([]);
 let debounce;
+let checkSeq = 0;
 
 async function check() {
+  const mine = ++checkSeq;
   const params = {};
   if (props.email?.trim()) params.email = props.email.trim();
   if (props.phone?.trim()) params.phone = props.phone.trim();
@@ -32,8 +34,13 @@ async function check() {
   }
   try {
     const { data } = await api.duplicates(params);
+    // Clearing the email field takes the early return above; without this an
+    // older in-flight response would then re-populate the warning for details
+    // that are no longer in the form.
+    if (mine !== checkSeq) return;
     matches.value = data.matches;
   } catch {
+    if (mine !== checkSeq) return;
     matches.value = []; // never let the advisory break the form
   }
 }
@@ -46,6 +53,12 @@ watch(
   },
 );
 onMounted(check);
+// This lives inside modals, so closing one mid-typing would otherwise fire a
+// duplicates lookup for a form that no longer exists.
+onBeforeUnmount(() => {
+  checkSeq++;
+  clearTimeout(debounce);
+});
 </script>
 
 <template>

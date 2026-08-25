@@ -14,7 +14,9 @@ const token = route.params.token;
 
 const data = ref(null);
 const notFound = ref(false);
+const loadError = ref(''); // anything that is NOT a bad token
 const confirming = ref(false); // "Confirming payment…" poll state
+const stillProcessing = ref(false); // poll gave up but the guest did pay
 const showCanceled = ref(route.query.canceled === '1');
 const extendOpen = ref(false);
 const extending = ref(false);
@@ -33,32 +35,65 @@ const remainingMs = computed(() => {
 
 const overdueMs = computed(() => -remainingMs.value);
 
+// `status` is a snapshot from the last fetch, but the countdown keeps running.
+// Deriving expiry locally means the moment paid_through passes, the guest sees
+// the warning — rather than every branch failing and the whole time block
+// silently disappearing off the page.
+const isExpired = computed(
+  () =>
+    !!data.value?.paid_through &&
+    remainingMs.value <= 0 &&
+    data.value.status !== 'departed' &&
+    data.value.status !== 'canceled',
+);
+
+let alive = true;
+
 async function load() {
   try {
     const { data: d } = await parkingPublic.status(token);
+    if (!alive) return null;
     data.value = d;
+    loadError.value = '';
     serverOffsetMs = Date.parse(d.server_now) - Date.now();
     applyParkingChrome(parkingTitle(d.brand_name, d.confirmation_code));
     return d;
   } catch (err) {
-    if (err?.response?.status === 404) notFound.value = true;
-    else if (!data.value) notFound.value = true;
+    if (!alive) return null;
+    // Only a real 404 means the link is bad. Telling a guest who just paid $32
+    // that their proof of payment "isn't valid" because their signal dropped
+    // in a concrete garage sends them to the front desk for nothing.
+    const status = err?.response?.status;
+    if (status === 404) notFound.value = true;
+    else if (status === 429) loadError.value = 'Checking too often — wait a moment and try again.';
+    else loadError.value = "Couldn't reach the parking service. Check your signal and try again.";
     return null;
   }
 }
 
 // After returning from Stripe (?paid=1), the webhook may not have landed yet.
 // Poll until the payment shows up (status leaves pending, or net paid grows).
+// Backing off rather than polling flat-out every 2s: each poll asks Stripe
+// directly about the outstanding checkout, so a flat interval meant ~15 live
+// Stripe round trips inside the guest's own requests, at 30/min against a
+// 60/min limiter. This covers the same ~40s in 7 requests.
+const POLL_BACKOFF_MS = [1500, 2000, 2500, 3000, 4000, 6000, 8000, 12000];
+
 async function confirmPaymentLoop(initialNetPaid) {
   confirming.value = true;
-  for (let i = 0; i < 15; i++) {
-    await new Promise((r) => (pollTimer = setTimeout(r, 2000)));
+  for (const wait of POLL_BACKOFF_MS) {
+    await new Promise((r) => (pollTimer = setTimeout(r, wait)));
+    if (!alive) return;
     const d = await load();
-    if (!d) break;
+    if (!alive) return;
+    if (!d) continue; // a transient failure mid-poll is not a reason to give up
     if (d.status !== 'pending_payment' && d.net_paid_cents > initialNetPaid) break;
-    if (d.status !== 'pending_payment' && i >= 2 && d.net_paid_cents >= initialNetPaid) break;
+    if (d.status !== 'pending_payment' && d.net_paid_cents >= initialNetPaid && wait >= 2500) break;
   }
+  if (!alive) return;
   confirming.value = false;
+  // Never tell someone who has just paid that payment "hasn't been completed".
+  if (data.value?.status === 'pending_payment') stillProcessing.value = true;
 }
 
 onMounted(async () => {
@@ -74,6 +109,11 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  // clearTimeout only kills the timer that is pending right now. If the loop is
+  // sitting in `await load()` it would otherwise resume after unmount, re-apply
+  // the parking chrome over the staff app's title, and arm a fresh timer that
+  // nothing will ever clear.
+  alive = false;
   clearInterval(clockTimer);
   clearTimeout(pollTimer);
   restoreChrome();
@@ -105,6 +145,13 @@ async function submitExtend() {
           This parking link isn't valid. Check the link from your payment confirmation, or see the
           front desk for help.
         </p>
+      </div>
+
+      <!-- Couldn't load — distinct from a bad token, and recoverable -->
+      <div v-else-if="loadError && !data" class="card p-8 text-center">
+        <h1 class="font-serif text-2xl text-ink">Can't load your parking</h1>
+        <p class="mt-2 text-slate-warm">{{ loadError }}</p>
+        <button class="btn btn-primary mt-5 w-full" @click="load">Try again</button>
       </div>
 
       <!-- Loading -->
@@ -143,6 +190,12 @@ async function submitExtend() {
               <span v-if="data.room"> · Room {{ data.room }}</span>
             </p>
             <div class="mt-3"><ParkingStatusPill :status="data.status" /></div>
+            <p v-if="loadError" class="mt-3 text-xs text-slate-warm">
+              {{ loadError }}
+              <button type="button" class="font-medium text-terracotta-700 hover:underline" @click="load">
+                Retry
+              </button>
+            </p>
 
             <template v-if="data.paid_through">
               <div v-if="remainingMs > 0" class="mt-5">
@@ -154,18 +207,31 @@ async function submitExtend() {
                   Paid through {{ formatDateTime(data.paid_through) }}
                 </p>
               </div>
-              <div v-else-if="data.status === 'expired'" class="mt-5">
+              <div v-else-if="isExpired" class="mt-5">
                 <p class="font-medium text-red-700">
-                  Parking expired {{ formatCountdown(overdueMs) }} ago
+                  {{ overdueMs < 60000 ? 'Parking has just expired' : `Parking expired ${formatCountdown(overdueMs)} ago` }}
                 </p>
-                <p class="mt-1 text-sm text-slate-warm">Extend below to avoid towing or fees.</p>
+                <p class="mt-1 text-sm text-slate-warm">
+                  {{
+                    data.kind === 'comp'
+                      ? 'Your parking was provided by the hotel — see the front desk to add more time.'
+                      : 'Add time below to avoid towing or fees.'
+                  }}
+                </p>
               </div>
               <p v-else-if="data.status === 'departed'" class="mt-4 text-sm text-slate-warm">
                 This vehicle has checked out. Thanks for staying with us.
               </p>
             </template>
+            <p v-else-if="stillProcessing" class="mt-4 text-sm text-slate-warm">
+              We've received your payment — it can take a minute to appear here.
+              <button type="button" class="font-medium text-terracotta-700 hover:underline" @click="load">
+                Refresh
+              </button>
+              , or show this code at the front desk.
+            </p>
             <p v-else-if="data.status === 'pending_payment'" class="mt-4 text-sm text-slate-warm">
-              Payment hasn't been completed for this session yet.
+              Payment hasn't been completed yet.
             </p>
             <p v-else-if="data.status === 'canceled'" class="mt-4 text-sm text-slate-warm">
               This session was canceled before payment.
@@ -188,7 +254,7 @@ async function submitExtend() {
 
           <!-- Extend -->
           <div
-            v-if="['active', 'expiring_soon', 'expired', 'complimentary'].includes(data.status) && data.kind !== 'comp'"
+            v-if="['active', 'expiring_soon', 'expired'].includes(data.status) && data.kind !== 'comp'"
             class="card p-5"
           >
             <button

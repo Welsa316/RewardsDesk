@@ -105,8 +105,35 @@ watch(drawerOpen, async (open) => {
 onBeforeUnmount(() => document.removeEventListener('keydown', onDrawerKey));
 
 watch(() => route.fullPath, () => (drawerOpen.value = false));
+
+// The queue badge is the front desk's only signal that a guest is waiting, and
+// nothing in the app refreshed it — an agent who signed in at 7am and left the
+// dashboard open saw the count they had at login all morning. Poll while the
+// tab is actually visible, and catch up immediately on refocus.
+const BADGE_POLL_MS = 45000;
+let badgeTimer = null;
+
+function refreshBadge() {
+  if (document.visibilityState !== 'visible') return;
+  if (!auth.isAuthenticated) return;
+  enrollments.loadPending();
+}
+
+function onVisibility() {
+  if (document.visibilityState === 'visible') refreshBadge();
+}
+
 onMounted(() => {
   if (!enrollments.loaded) enrollments.loadPending();
+  badgeTimer = setInterval(refreshBadge, BADGE_POLL_MS);
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('focus', refreshBadge);
+});
+
+onBeforeUnmount(() => {
+  clearInterval(badgeTimer);
+  document.removeEventListener('visibilitychange', onVisibility);
+  window.removeEventListener('focus', refreshBadge);
 });
 </script>
 

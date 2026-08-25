@@ -31,6 +31,13 @@ export async function validateIntake(req, res, next) {
     const phone = cleanStr(b.phone, 32);
     if (phone && !isPhone(phone)) errors.phone = 'Enter a valid phone number.';
 
+    // Best Western needs a way to reach the guest, so a name-only submission
+    // cannot actually be enrolled — the desk gets a card reading "No email ·
+    // No phone" after the guest has been told they're all set.
+    if (!email && !phone) {
+      errors.email = 'Add an email or a phone number so we can create your account.';
+    }
+
     if (Object.keys(errors).length) {
       return res.status(422).json({ error: 'Please fix the highlighted fields.', fields: errors });
     }

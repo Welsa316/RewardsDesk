@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { stats as api } from '../api';
 
 const rows = ref([]);
@@ -7,6 +7,7 @@ const rows = ref([]);
 // debounced load completes.
 const loading = ref(true);
 const loaded = ref(false);
+const loadError = ref('');
 const range = reactive({ from: '', to: '' });
 const activePreset = ref('month');
 
@@ -44,32 +45,54 @@ function endInstant(dateStr) {
   return d.toISOString();
 }
 
+let loadSeq = 0;
+
 async function load() {
   loading.value = true;
+  const mine = ++loadSeq;
   try {
     const params = {};
     if (range.from) params.from = startInstant(range.from);
     if (range.to) params.to = endInstant(range.to);
     const { data } = await api.leaderboard(params);
+    if (mine !== loadSeq) return; // a newer range change already won
     rows.value = data.rows;
+    loadError.value = '';
     loaded.value = true;
+  } catch (err) {
+    if (mine !== loadSeq) return;
+    if (err?.response?.status === 401) return; // interceptor is redirecting
+    // There was no catch here at all, so a failure left loading false and
+    // loaded false — every branch fell through to the final v-else and the
+    // owner saw an empty card, which reads as "nobody enrolled anyone".
+    loadError.value = 'Could not load the leaderboard.';
+    rows.value = [];
   } finally {
-    loading.value = false;
+    if (mine === loadSeq) loading.value = false;
   }
 }
 
 let debounce;
+// The initial preset() below mutates `range`, which would otherwise schedule a
+// debounced load and put 250ms of latency in front of the page's own first
+// paint. Skip that one trigger and load directly instead.
+let primed = false;
 watch(
   () => ({ ...range }),
   () => {
     clearTimeout(debounce);
+    if (!primed) return;
     debounce = setTimeout(load, 250);
   },
   { deep: true },
 );
+onBeforeUnmount(() => clearTimeout(debounce));
 
-onMounted(() => {
+onMounted(async () => {
   preset('month');
+  load();
+  await nextTick();
+  primed = true;
 });
 </script>
 
@@ -118,6 +141,13 @@ onMounted(() => {
     <!-- Loading -->
     <div v-if="loading && !loaded" class="mt-4 space-y-3">
       <div v-for="i in 3" :key="i" class="h-16 animate-pulse rounded-xl border border-sand bg-white/60" />
+    </div>
+
+    <!-- Failed -->
+    <div v-else-if="loadError" class="card mt-4 p-10 text-center">
+      <p class="font-serif text-lg text-ink">{{ loadError }}</p>
+      <p class="mt-1 text-sm text-slate-warm">These figures are missing, not zero.</p>
+      <button class="btn btn-secondary mt-4" @click="load">Try again</button>
     </div>
 
     <!-- Empty -->

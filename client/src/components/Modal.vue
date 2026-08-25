@@ -2,8 +2,24 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { focusFirst, trapTabKey } from '../utils/focusTrap';
 
-defineProps({ title: { type: String, default: '' } });
+const props = defineProps({
+  title: { type: String, default: '' },
+  // On mobile the panel is bottom-anchored, so the backdrop is a wide target
+  // directly above the form — a thumb brushing it used to unmount the modal
+  // and take every typed field with it, with no confirmation. Data-entry
+  // modals opt out. Escape still closes: it is a deliberate keypress, and a
+  // dialog that ignores it breaks the expected keyboard contract.
+  dismissible: { type: Boolean, default: true },
+  // Set while a submit is in flight so nothing can close mid-request.
+  busy: { type: Boolean, default: false },
+});
 const emit = defineEmits(['close']);
+
+function requestClose(viaBackdrop = false) {
+  if (props.busy) return;
+  if (viaBackdrop && !props.dismissible) return;
+  emit('close');
+}
 
 let uid = 0;
 const titleId = `modal-title-${++uid}-${Date.now() % 100000}`;
@@ -14,7 +30,7 @@ let prevBodyOverflow = '';
 
 function onKey(e) {
   if (e.key === 'Escape') {
-    emit('close');
+    requestClose(false);
     return;
   }
   trapTabKey(panel.value, e);
@@ -39,7 +55,7 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 z-40 flex items-end justify-center sm:items-center">
-      <div class="absolute inset-0 bg-ink/40" @click="emit('close')" />
+      <div class="absolute inset-0 bg-ink/40" @click="requestClose(true)" />
       <div
         ref="panel"
         role="dialog"

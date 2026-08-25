@@ -6,12 +6,15 @@ const byNewest = (a, b) => new Date(b.created_at) - new Date(a.created_at);
 export const useEnrollmentsStore = defineStore('enrollments', {
   state: () => ({
     pending: [],
+    total: 0, // server-side count; pending[] is capped at 100
     loading: false,
     loaded: false,
     error: '',
   }),
   getters: {
-    pendingCount: (s) => s.pending.length,
+    pendingCount: (s) => s.total || s.pending.length,
+    // True when the Queue is showing fewer rows than actually exist.
+    pendingTruncated: (s) => s.total > s.pending.length,
   },
   actions: {
     async loadPending() {
@@ -25,6 +28,10 @@ export const useEnrollmentsStore = defineStore('enrollments', {
           dir: 'desc',
         });
         this.pending = data.data;
+        // The server caps pageSize at 100 and the Queue has no pagination, so
+        // pending.length silently under-reports once a backlog builds — the
+        // sidebar badge read 100 while the dashboard read the true 137.
+        this.total = data.total;
         this.loaded = true;
       } catch {
         this.error = 'Could not load the queue.';

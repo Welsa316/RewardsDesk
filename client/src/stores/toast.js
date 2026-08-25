@@ -12,7 +12,10 @@ export const useToastStore = defineStore('toast', {
       return id;
     },
     success(message, opts = {}) {
-      return this.push({ message, type: 'success', ...opts });
+      // A toast carrying an Undo is the only route back, so it has to outlive a
+      // four-second glance while an agent is still talking to the guest.
+      const timeout = opts.action ? 12000 : undefined;
+      return this.push({ message, type: 'success', ...(timeout ? { timeout } : {}), ...opts });
     },
     error(message, opts = {}) {
       return this.push({ message, type: 'error', timeout: 6000, ...opts });

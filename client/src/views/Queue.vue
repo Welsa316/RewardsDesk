@@ -32,6 +32,18 @@ const filtered = computed(() => {
 
 onMounted(() => store.loadPending());
 
+const recent = ref([]);
+
+async function undoRecent(entry) {
+  try {
+    await store.undo(entry.removed);
+    recent.value = recent.value.filter((r) => r.key !== entry.key);
+    toast.success('Restored to queue');
+  } catch {
+    toast.error('Could not undo.');
+  }
+}
+
 async function act(status) {
   const enrollment = selected.value;
   if (!enrollment) return;
@@ -39,6 +51,13 @@ async function act(status) {
   try {
     const removed = await store.process(enrollment.id, status);
     selected.value = null;
+    // Keep a short local history so a missed 12s toast is not the end of the
+    // road — otherwise recovery means Enrollments → search → open → edit, which
+    // also rewrites processed_by and skews the leaderboard.
+    recent.value = [
+      { key: `${removed.id}-${Date.now()}`, removed, label: STATUS_LABELS[status], name: fullName(enrollment) },
+      ...recent.value,
+    ].slice(0, 5);
     toast.success(`${fullName(enrollment)} — ${STATUS_LABELS[status]}`, {
       action: {
         label: 'Undo',
@@ -70,7 +89,12 @@ function onWalkUpCreated(data) {
     <div class="mb-5 flex items-center justify-between gap-3">
       <div>
         <h1 class="font-serif text-2xl text-ink">Pending queue</h1>
-        <p class="text-sm text-slate-warm">{{ store.pendingCount }} waiting to be processed</p>
+        <p class="text-sm text-slate-warm">
+          {{ store.pendingCount }} waiting to be processed
+          <span v-if="store.pendingTruncated">
+            · showing the {{ store.pending.length }} oldest — process these to see more
+          </span>
+        </p>
       </div>
       <button class="btn btn-primary !py-2.5" aria-label="Add walk-up enrollment" @click="showWalkUp = true">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -86,6 +110,23 @@ function onWalkUpCreated(data) {
       aria-label="Search pending enrollments"
       placeholder="Search name, email, or phone…"
     />
+
+    <!-- Just-processed, so a mis-tap is recoverable after the toast has gone -->
+    <div v-if="recent.length" class="mb-4 rounded-xl border border-sand bg-white/70 px-4 py-3">
+      <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-warm">Just processed</p>
+      <ul class="space-y-1.5">
+        <li v-for="r in recent" :key="r.key" class="flex items-center justify-between gap-3 text-sm">
+          <span class="min-w-0 truncate text-ink">{{ r.name }} — {{ r.label }}</span>
+          <button
+            type="button"
+            class="shrink-0 font-medium text-terracotta-700 hover:underline"
+            @click="undoRecent(r)"
+          >
+            Undo
+          </button>
+        </li>
+      </ul>
+    </div>
 
     <!-- Loading skeleton -->
     <div v-if="store.loading && !store.loaded" class="space-y-3">

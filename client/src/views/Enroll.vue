@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue';
+import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { intake } from '../api';
 import BrandMark from '../components/BrandMark.vue';
@@ -7,7 +7,11 @@ import AddressFields from '../components/AddressFields.vue';
 
 const route = useRoute();
 
-const hotelName = ref('Best Western Rewards');
+// The property is the entity collecting this, not the loyalty programme. The
+// real name replaces this as soon as the public config lands; if that request
+// fails the sentence must still be true, so the fallback is generic rather
+// than a brand that isn't the one asking.
+const hotelName = ref('this hotel');
 const status = ref('form'); // 'form' | 'submitting' | 'success'
 const formError = ref('');
 const fieldErrors = reactive({});
@@ -64,7 +68,10 @@ onMounted(async () => {
   }
 });
 
-const canSubmit = computed(() => form.consent && status.value !== 'submitting');
+// Deliberately NOT gated on consent: a disabled button gives the guest no
+// explanation, and it made the consent error below unreachable dead code.
+// Let the submit run and say what is missing.
+const canSubmit = computed(() => status.value !== 'submitting');
 
 function clearError(field) {
   if (fieldErrors[field]) delete fieldErrors[field];
@@ -76,8 +83,18 @@ async function submit() {
 
   if (!form.first_name.trim()) fieldErrors.first_name = 'First name is required.';
   if (!form.last_name.trim()) fieldErrors.last_name = 'Last name is required.';
+  if (!form.email.trim() && !form.phone.trim()) {
+    fieldErrors.email = 'Add an email or a phone number so we can create your account.';
+  }
   if (!form.consent) fieldErrors.consent = 'Please check the box to continue.';
-  if (Object.keys(fieldErrors).length) return;
+  if (Object.keys(fieldErrors).length) {
+    // Move the guest to the first thing that needs fixing, rather than leaving
+    // them staring at a button that appears to do nothing.
+    await nextTick();
+    const first = document.querySelector('.field-error');
+    first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   status.value = 'submitting';
   try {
@@ -229,8 +246,8 @@ async function submit() {
                 @change="clearError('consent')"
               />
               <span class="text-sm leading-relaxed text-slate-warm">
-                I'd like to join Best Western Rewards. I authorize {{ hotelName }} to use this
-                information to enroll me and to contact me about my membership.
+                I'd like to join Best Western Rewards. I authorize {{ hotelName }} to use these
+                details to enroll me at the front desk.
               </span>
             </label>
             <p v-if="fieldErrors.consent" id="consent-error" class="field-error">{{ fieldErrors.consent }}</p>

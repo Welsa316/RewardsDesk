@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { enrollments as api } from '../api';
 import { useToastStore } from '../stores/toast';
 import { useAuthStore } from '../stores/auth';
@@ -15,6 +15,7 @@ const toast = useToastStore();
 const auth = useAuthStore();
 
 const enrollment = ref(null);
+const loadError = ref('');
 const loading = ref(true);
 const saving = ref(false);
 const form = reactive({ status: '', notes: '' });
@@ -36,13 +37,18 @@ const addressFull = computed(() => {
 
 async function load() {
   loading.value = true;
+  loadError.value = '';
   try {
     const { data } = await api.get(route.params.id);
     enrollment.value = data;
     form.status = data.status;
     form.notes = data.notes || '';
-  } catch {
-    toast.error('Could not load this record.');
+  } catch (err) {
+    if (err?.response?.status === 401) return; // interceptor is redirecting
+    loadError.value =
+      err?.response?.status === 404
+        ? 'This record no longer exists — it may have been deleted.'
+        : 'Could not load this record.';
   } finally {
     loading.value = false;
   }
@@ -97,6 +103,16 @@ onMounted(load);
     </button>
 
     <div v-if="loading" class="h-64 animate-pulse rounded-2xl border border-sand bg-white/60" />
+
+    <!-- Without this the page was simply blank: a v-if/v-else-if pair with no
+         else, so a deleted record or a transient 500 rendered nothing at all. -->
+    <div v-else-if="loadError" class="card p-10 text-center">
+      <p class="font-serif text-lg text-ink">{{ loadError }}</p>
+      <div class="mt-4 flex justify-center gap-2">
+        <button class="btn btn-secondary" @click="load">Try again</button>
+        <RouterLink to="/enrollments" class="btn btn-ghost">Back to enrollments</RouterLink>
+      </div>
+    </div>
 
     <div v-else-if="enrollment" class="space-y-4">
       <!-- Header -->

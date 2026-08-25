@@ -55,11 +55,29 @@ async function addStaff() {
   }
 }
 
+// These controls are bound with :value rather than v-model, so when a save
+// fails and we leave the row object untouched, Vue has no reason to re-render
+// and the DOM keeps showing the value the user picked. For a *role* dropdown
+// that means the screen claims a permission level that does not exist. Reload
+// the row from the server on failure so the control snaps back.
+const busyId = ref(null);
+
+async function revertRow(u) {
+  // Replace the row object so the :value-bound nodes re-render from the data
+  // (which was never mutated), discarding what the user picked. load() alone
+  // is not enough — it swallows its own errors, so an offline reload would
+  // leave the stale DOM value sitting there.
+  const i = users.value.findIndex((x) => x.id === u.id);
+  if (i !== -1) users.value[i] = { ...users.value[i] };
+  await load();
+}
+
 async function setGoal(u, value) {
   const raw = String(value).trim();
   const goal = raw === '' ? null : Number(raw);
   if (goal !== null && (!Number.isInteger(goal) || goal < 0)) {
     toast.error('Monthly goal must be a whole number.');
+    await revertRow(u);
     return;
   }
   if (goal === u.monthly_goal) return;
@@ -69,6 +87,7 @@ async function setGoal(u, value) {
     toast.success(goal === null ? `Goal cleared for ${u.name}` : `${u.name}: ${goal}/month`);
   } catch (err) {
     toast.error(err?.response?.data?.error || 'Could not set the goal.');
+    await revertRow(u);
   }
 }
 
@@ -80,17 +99,30 @@ async function setRole(u, role) {
     toast.success(`${u.name} is now ${role}`);
   } catch (err) {
     toast.error(err?.response?.data?.error || 'Could not change role.');
+    await revertRow(u);
   }
 }
 
 async function toggleActive(u) {
+  if (busyId.value) return;
+  const deactivating = u.active;
+  // Deactivation signs someone out immediately and locks them out. A double
+  // tap used to fire two DELETEs and flip the local flag twice, so the card
+  // said "active" while the database said otherwise — discovered at 6am.
+  if (deactivating && !window.confirm(`Deactivate ${u.name}? They'll be signed out and won't be able to log back in.`)) {
+    return;
+  }
+  busyId.value = u.id;
   try {
-    if (u.active) await api.deactivate(u.id);
+    if (deactivating) await api.deactivate(u.id);
     else await api.update(u.id, { active: true });
-    u.active = !u.active;
-    toast.success(u.active ? 'Reactivated' : 'Deactivated');
+    u.active = !deactivating; // from what we asked for, not from a local negation
+    toast.success(deactivating ? `${u.name} deactivated` : `${u.name} reactivated`);
   } catch (err) {
     toast.error(err?.response?.data?.error || 'Could not update.');
+    await revertRow(u);
+  } finally {
+    busyId.value = null;
   }
 }
 
@@ -191,9 +223,10 @@ async function resetPassword() {
             v-if="u.id !== auth.user?.id"
             class="btn !py-1.5 text-sm"
             :class="u.active ? 'border border-sand bg-white text-red-700 hover:bg-red-50' : 'border border-sand bg-white text-ink hover:bg-sand/50'"
+            :disabled="busyId === u.id"
             @click="toggleActive(u)"
           >
-            {{ u.active ? 'Deactivate' : 'Reactivate' }}
+            {{ busyId === u.id ? 'Working…' : u.active ? 'Deactivate' : 'Reactivate' }}
           </button>
         </div>
       </div>

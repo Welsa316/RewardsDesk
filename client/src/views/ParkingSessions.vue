@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { parking, parkingPublic } from '../api';
 import { useToastStore } from '../stores/toast';
@@ -41,20 +41,31 @@ const selectedId = ref(null);
 const showNew = ref(false);
 const rates = ref(null);
 
+let loadSeq = 0;
+
 async function load() {
   loading.value = true;
   loadError.value = '';
+  const mine = ++loadSeq;
   try {
     const params = { page: page.value, pageSize };
     if (filters.q) params.q = filters.q;
     if (filters.status) params.status = filters.status;
     const { data } = await parking.sessions(params);
+    // Typing "ABC" then "1234" fires two requests; if the first is slower it
+    // would land last and leave the list showing matches for "ABC" while the
+    // box reads "ABC1234". At a desk that is checking out the wrong car.
+    if (mine !== loadSeq) return;
     rows.value = data.data;
     total.value = data.total;
-  } catch {
+  } catch (err) {
+    if (mine !== loadSeq) return;
+    if (err?.response?.status === 401) return;
     loadError.value = 'Could not load parking sessions.';
+    rows.value = [];
+    total.value = 0;
   } finally {
-    loading.value = false;
+    if (mine === loadSeq) loading.value = false;
   }
 }
 
@@ -70,6 +81,7 @@ watch(
   },
   { deep: true },
 );
+onBeforeUnmount(() => clearTimeout(debounce));
 
 function goTo(p) {
   page.value = p;

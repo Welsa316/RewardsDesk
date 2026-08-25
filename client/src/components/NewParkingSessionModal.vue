@@ -54,7 +54,7 @@ async function submit() {
 </script>
 
 <template>
-  <Modal title="New parking session" @close="emit('close')">
+  <Modal title="New parking session" :dismissible="false" :busy="submitting" @close="emit('close')">
     <form class="space-y-4" novalidate @submit.prevent="submit">
       <p
         v-if="formError"
