@@ -108,14 +108,54 @@ function openRefund(payment) {
   refundReason.value = '';
 }
 
+// Stripe refunds move money by themselves; cash and card-terminal refunds are
+// recorded-only — a human still has to open the till or void on the terminal.
+const refundIsStripe = computed(() => refundFor.value?.method === 'stripe');
+
+const refundCents = computed(() => {
+  const raw = String(refundAmount.value).trim().replace(/^\$/, '');
+  if (raw === '') return refundableCents(refundFor.value || {});
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+});
+
 async function submitRefund() {
+  const payment = refundFor.value;
+  const max = refundableCents(payment);
+  const amount = refundCents.value;
+
+  if (amount === null) {
+    toast.error('Enter a dollar amount like 12.50, or leave it blank to refund the rest.');
+    return;
+  }
+  if (amount <= 0 || amount > max) {
+    toast.error(`Enter an amount between $0.01 and ${formatMoney(max)}.`);
+    return;
+  }
+  if (!refundReason.value.trim()) {
+    toast.error('A refund reason is required.');
+    return;
+  }
+
+  const full = amount === max;
+  const confirmMsg = refundIsStripe.value
+    ? `Refund ${formatMoney(amount)}${full ? ' (the full remaining amount)' : ''} to the guest's card? Stripe processes this immediately.`
+    : `Record a ${formatMoney(amount)}${full ? ' (full)' : ''} ${payment.method === 'cash' ? 'cash' : 'card-terminal'} refund?\n\nThis only writes it to the ledger — you must hand the money back / void on the terminal yourself.`;
+  if (!window.confirm(confirmMsg)) return;
+
   refundBusy.value = true;
   try {
-    const payload = { payment_id: refundFor.value.id, reason: refundReason.value };
-    const amt = refundAmount.value === '' ? null : Math.round(Number(refundAmount.value) * 100);
-    if (amt !== null) payload.amount_cents = amt;
-    await parking.refund(s.value.id, payload);
-    toast.success('Refund issued');
+    await parking.refund(s.value.id, {
+      payment_id: payment.id,
+      reason: refundReason.value.trim(),
+      amount_cents: amount,
+    });
+    toast.success(
+      refundIsStripe.value
+        ? `${formatMoney(amount)} refunded to the card`
+        : `${formatMoney(amount)} refund recorded — hand it to the guest`,
+    );
     refundFor.value = null;
     await load();
     emit('changed');
@@ -264,10 +304,33 @@ function refundableCents(payment) {
 
       <!-- Refund form (admin) -->
       <div v-if="refundFor" class="rounded-xl border border-red-200 bg-red-50/50 p-4">
-        <p class="label">Refund {{ formatMoney(refundFor.amount_cents) }} payment</p>
-        <label class="label" for="rf_amount">Amount in dollars (blank = full refund)</label>
-        <input id="rf_amount" v-model="refundAmount" class="input" inputmode="decimal" placeholder="Full refund" />
-        <label class="label mt-3" for="rf_reason">Reason</label>
+        <p class="label">
+          Refund {{ formatMoney(refundFor.amount_cents) }}
+          {{ refundIsStripe ? 'card payment' : refundFor.method === 'cash' ? 'cash payment' : 'terminal payment' }}
+        </p>
+
+        <p v-if="!refundIsStripe" class="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <strong>This records the refund only.</strong>
+          You must hand the money back
+          {{ refundFor.method === 'cash' ? 'from the till' : 'by voiding on the card terminal' }}
+          yourself — the app cannot move it.
+        </p>
+
+        <label class="label" for="rf_amount">
+          Amount in dollars — blank refunds the remaining {{ formatMoney(refundableCents(refundFor)) }}
+        </label>
+        <input
+          id="rf_amount"
+          v-model="refundAmount"
+          class="input"
+          inputmode="decimal"
+          :placeholder="`Full refund (${formatMoney(refundableCents(refundFor))})`"
+        />
+        <p class="mt-1 text-xs text-slate-warm">
+          Will refund <strong>{{ refundCents === null ? '—' : formatMoney(refundCents) }}</strong>
+        </p>
+
+        <label class="label mt-3" for="rf_reason">Reason (required)</label>
         <input id="rf_reason" v-model="refundReason" class="input" placeholder="e.g. Guest canceled trip" />
         <div class="mt-3 flex gap-2">
           <button class="btn btn-ghost flex-1" @click="refundFor = null">Cancel</button>
@@ -276,7 +339,7 @@ function refundableCents(payment) {
             :disabled="refundBusy"
             @click="submitRefund"
           >
-            {{ refundBusy ? 'Refunding…' : 'Issue refund' }}
+            {{ refundBusy ? 'Working…' : refundIsStripe ? 'Refund to card' : 'Record refund' }}
           </button>
         </div>
       </div>

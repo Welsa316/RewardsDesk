@@ -366,62 +366,84 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
     const reason = cleanStr(req.body?.reason, 200);
     if (!reason) return res.status(422).json({ error: 'A refund reason is required.' });
 
-    const { rows } = await query(
-      `SELECT p.*,
-              COALESCE((SELECT SUM(r.amount_cents) FROM parking_payments r
-                         WHERE r.refunded_payment_id = p.id AND r.type='refund'
-                           AND r.status='succeeded'), 0)::int AS already_refunded
-         FROM parking_payments p
-        WHERE p.id = $1 AND p.session_id = $2`,
-      [paymentId, id],
-    );
-    const payment = rows[0];
-    if (!payment) return res.status(404).json({ error: 'Payment not found.' });
-    if (payment.type !== 'charge' || payment.status !== 'succeeded' || payment.amount_cents === 0) {
-      return res.status(422).json({ error: 'Only a succeeded charge can be refunded.' });
+    // An explicit null is NOT "no amount given" — JSON.stringify turns NaN into
+    // null, so a malformed dollar box would otherwise arrive as a full refund.
+    // Only an absent key means "refund everything that is left".
+    const rawAmount = req.body?.amount_cents;
+    const amountGiven = rawAmount !== undefined;
+    if (amountGiven && !Number.isInteger(rawAmount)) {
+      return res.status(422).json({ error: 'Enter a refund amount in dollars, e.g. 12.50.' });
     }
 
-    const refundable = payment.amount_cents - payment.already_refunded;
-    let amount = req.body?.amount_cents === undefined || req.body?.amount_cents === null
-      ? refundable
-      : Number(req.body.amount_cents);
-    if (!Number.isInteger(amount) || amount <= 0 || amount > refundable) {
-      return res.status(422).json({
-        error: `Refund must be between $0.01 and the remaining ${(refundable / 100).toFixed(2)} on this payment.`,
-      });
-    }
-
-    if (payment.method === 'stripe') {
-      if (!payment.stripe_payment_intent_id) {
-        return res.status(422).json({ error: 'This payment has no Stripe reference.' });
+    // The whole read-decide-write runs under a row lock on the payment being
+    // refunded: two admins refunding the same charge at once would otherwise
+    // both read the same already_refunded and both pass the over-refund guard.
+    const result = await withTransaction(async (client) => {
+      const { rows: payRows } = await client.query(
+        `SELECT * FROM parking_payments WHERE id = $1 AND session_id = $2 FOR UPDATE`,
+        [paymentId, id],
+      );
+      const payment = payRows[0];
+      if (!payment) return { code: 404, body: { error: 'Payment not found.' } };
+      if (payment.type !== 'charge' || payment.status !== 'succeeded' || payment.amount_cents === 0) {
+        return { code: 422, body: { error: 'Only a succeeded charge can be refunded.' } };
       }
-      const refund = await getStripe().refunds.create({
-        payment_intent: payment.stripe_payment_intent_id,
-        amount,
-      });
-      // The charge.refunded webhook may race us — same stripe_refund_id either
-      // way, so exactly one audit row survives, annotated with the actor.
-      await query(
-        `INSERT INTO parking_payments
-           (session_id, type, purpose, method, amount_cents, status, stripe_refund_id,
-            stripe_payment_intent_id, refunded_payment_id, created_by, note)
-         VALUES ($1,'refund','refund','stripe',$2,'succeeded',$3,$4,$5,$6,$7)
-         ON CONFLICT (stripe_refund_id) DO UPDATE
-           SET created_by = EXCLUDED.created_by, note = EXCLUDED.note,
-               refunded_payment_id = EXCLUDED.refunded_payment_id, updated_at = now()`,
-        [id, amount, refund.id, payment.stripe_payment_intent_id, paymentId, req.user.id, reason],
-      );
-    } else {
-      // Desk/cash refund: recorded-only; the money changes hands at the desk.
-      await query(
-        `INSERT INTO parking_payments
-           (session_id, type, purpose, method, amount_cents, status, refunded_payment_id, created_by, note)
-         VALUES ($1,'refund','refund',$2,$3,'succeeded',$4,$5,$6)`,
-        [id, payment.method, amount, paymentId, req.user.id, reason],
-      );
-    }
 
-    res.status(201).json({ ok: true, refunded_cents: amount });
+      // Read the refunded-so-far total only after the lock is held. In READ
+      // COMMITTED each statement takes a fresh snapshot, so a refund committed
+      // by the transaction we just waited on is visible here.
+      const { rows: sumRows } = await client.query(
+        `SELECT COALESCE(SUM(amount_cents), 0)::int AS already_refunded
+           FROM parking_payments
+          WHERE refunded_payment_id = $1 AND type='refund' AND status='succeeded'`,
+        [paymentId],
+      );
+      const refundable = payment.amount_cents - sumRows[0].already_refunded;
+      const amount = amountGiven ? rawAmount : refundable;
+      if (!Number.isInteger(amount) || amount <= 0 || amount > refundable) {
+        return {
+          code: 422,
+          body: {
+            error: `Refund must be between $0.01 and the remaining $${(refundable / 100).toFixed(2)} on this payment.`,
+          },
+        };
+      }
+
+      if (payment.method === 'stripe') {
+        if (!payment.stripe_payment_intent_id) {
+          return { code: 422, body: { error: 'This payment has no Stripe reference.' } };
+        }
+        const refund = await getStripe().refunds.create(
+          { payment_intent: payment.stripe_payment_intent_id, amount },
+          // Retrying this exact refund (double-submit, proxy retry) returns the
+          // original refund instead of moving money twice.
+          { idempotencyKey: `rfnd-${paymentId}-${amount}-${req.user.id}` },
+        );
+        // The charge.refunded webhook may race us — same stripe_refund_id either
+        // way, so exactly one audit row survives, annotated with the actor.
+        await client.query(
+          `INSERT INTO parking_payments
+             (session_id, type, purpose, method, amount_cents, status, stripe_refund_id,
+              stripe_payment_intent_id, refunded_payment_id, created_by, note)
+           VALUES ($1,'refund','refund','stripe',$2,'succeeded',$3,$4,$5,$6,$7)
+           ON CONFLICT (stripe_refund_id) DO UPDATE
+             SET created_by = EXCLUDED.created_by, note = EXCLUDED.note,
+                 refunded_payment_id = EXCLUDED.refunded_payment_id, updated_at = now()`,
+          [id, amount, refund.id, payment.stripe_payment_intent_id, paymentId, req.user.id, reason],
+        );
+      } else {
+        // Desk/cash refund: recorded-only; the money changes hands at the desk.
+        await client.query(
+          `INSERT INTO parking_payments
+             (session_id, type, purpose, method, amount_cents, status, refunded_payment_id, created_by, note)
+           VALUES ($1,'refund','refund',$2,$3,'succeeded',$4,$5,$6)`,
+          [id, payment.method, amount, paymentId, req.user.id, reason],
+        );
+      }
+      return { code: 201, body: { ok: true, refunded_cents: amount, method: payment.method } };
+    });
+
+    res.status(result.code).json(result.body);
   } catch (err) {
     next(err);
   }

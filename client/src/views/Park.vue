@@ -16,6 +16,7 @@ const submitting = ref(false);
 const formError = ref('');
 const fieldErrors = reactive({});
 const showCanceled = ref(route.query.canceled === '1');
+const alreadyParked = ref(null); // { paid_through, status_token? } — set on a 409
 
 const form = reactive({
   guest_name: '',
@@ -58,6 +59,12 @@ onBeforeUnmount(restoreChrome);
 
 const canSubmit = computed(() => !submitting.value && rates.value);
 
+function formatUntil(iso) {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'short', hour: 'numeric', minute: '2-digit',
+  });
+}
+
 function clearError(field) {
   if (fieldErrors[field]) delete fieldErrors[field];
 }
@@ -65,6 +72,7 @@ function clearError(field) {
 async function submit() {
   formError.value = '';
   showCanceled.value = false;
+  alreadyParked.value = null;
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
   if (!form.guest_name.trim()) fieldErrors.guest_name = 'Name is required.';
   if (!form.phone.trim()) fieldErrors.phone = 'Phone number is required.';
@@ -83,6 +91,11 @@ async function submit() {
   } catch (err) {
     submitting.value = false;
     const data = err?.response?.data;
+    if (data?.already_parked) {
+      alreadyParked.value = { paid_through: data.paid_through, status_token: data.status_token };
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (data?.fields) Object.assign(fieldErrors, data.fields);
     formError.value = data?.error || 'Something went wrong. Please try again.';
   }
@@ -110,6 +123,30 @@ async function submit() {
 
       <div v-if="loadError" class="card p-8 text-center">
         <p class="text-slate-warm">Parking is unavailable right now. Please see the front desk.</p>
+      </div>
+
+      <!-- This car already has time on it — never let the guest pay twice. -->
+      <div v-else-if="alreadyParked" role="alert" class="card space-y-4 p-6 text-center">
+        <h2 class="font-serif text-xl text-ink">This car is already parked</h2>
+        <p class="text-sm text-slate-warm">
+          <strong class="text-ink">{{ form.plate.toUpperCase() }}</strong> is paid through
+          <strong class="text-ink">{{ formatUntil(alreadyParked.paid_through) }}</strong>.
+          You have not been charged again.
+        </p>
+        <a
+          v-if="alreadyParked.status_token"
+          :href="`/park/s/${alreadyParked.status_token}`"
+          class="btn btn-primary block w-full"
+        >
+          View my parking
+        </a>
+        <p v-else class="text-sm text-slate-warm">
+          Open the link from your payment confirmation to see your time or add more.
+          If you can't find it, the front desk can look it up.
+        </p>
+        <button type="button" class="btn btn-ghost w-full" @click="alreadyParked = null">
+          This is a different car
+        </button>
       </div>
 
       <form v-else class="card space-y-5 p-6" novalidate @submit.prevent="submit">

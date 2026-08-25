@@ -85,6 +85,30 @@ router.post(
       }
       const lot = s.parking_lots.includes(c.lot) ? c.lot : null;
 
+      // Guard against paying twice for the same car. A guest who loses their
+      // status link and re-scans the lot sign lands on a blank form; without
+      // this they can fill it in again and be charged a second time.
+      // The status token is only handed back when the phone matches too — a
+      // plate is visible on the car, so plate alone is not proof of ownership
+      // (the status page carries the room number).
+      const { rows: dupRows } = await query(
+        `SELECT status_token, paid_through, phone
+           FROM parking_sessions
+          WHERE plate = $1 AND disposition = 'active' AND paid_through > now()
+          ORDER BY paid_through DESC LIMIT 1`,
+        [c.plate],
+      );
+      if (dupRows[0]) {
+        const dup = dupRows[0];
+        const samePhone = dup.phone && c.phone && dup.phone === c.phone;
+        return res.status(409).json({
+          error: `${c.plate} is already parked here until ${new Date(dup.paid_through).toISOString()}. You don't need to pay again.`,
+          already_parked: true,
+          paid_through: dup.paid_through,
+          status_token: samePhone ? dup.status_token : undefined,
+        });
+      }
+
       // Rows first (committed), then the Stripe network call — a failed call
       // marks the rows failed/canceled rather than holding a transaction open.
       const created = await withTransaction(async (client) => {
