@@ -41,6 +41,14 @@ app survives redeploys, and a deactivated admin stays deactivated.
    - Copy its signing secret into `STRIPE_WEBHOOK_SECRET`. ⚠ The Stripe **CLI's**
      `whsec_` (used for local dev) is a different value and will NOT work in production.
 4. Enable customer receipt emails: Stripe dashboard → Settings → Emails → "Successful payments".
+5. **Set the public business name for parking.** The app's own pages are
+   white-label — the guest never sees the rewards app or, unless you configure
+   it, the hotel. But Stripe's own checkout page, the emailed receipt and the
+   line on the guest's card statement all use *your Stripe account's* public
+   business name and statement descriptor, which this app cannot change. Today
+   that reads "Best Western Plus New Orleans Airport". If parking should look
+   independent all the way through, set Stripe → Settings → Business → public
+   business name and the statement descriptor to the parking brand instead.
 
 **Note on webhooks:** the app does not depend on the webhook arriving. If one is delayed
 or missed, the guest's status page asks Stripe directly whether the payment succeeded and
