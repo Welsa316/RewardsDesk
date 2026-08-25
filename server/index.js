@@ -1,6 +1,7 @@
 import './env.js';
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +33,11 @@ if (isProd && (process.env.JWT_SECRET || '').length < 32) {
     '⚠ JWT_SECRET is short or unset. Use a long random value (e.g. `openssl rand -base64 48`).',
   );
 }
+
+// Nothing here was compressed. On the guest parking path that is 192 KiB over
+// the wire where gzip sends 70 — roughly 650ms on congested hotel wifi, for a
+// page someone is standing outside in the weather to use.
+app.use(compression());
 
 // Security headers. CSP only in production (dev pages come from Vite):
 // self-hosted scripts, Google Fonts styles/fonts, data: images (QR codes).
@@ -101,15 +107,23 @@ if (isProd) {
       }),
     );
 
-    // The guest parking pages are white-label: the HTML they receive must not
-    // name the staff app at all, not even in the inline chrome script. One
-    // read at boot, one string swap per request.
-    const indexHtml = readFileSync(join(dist, 'index.html'), 'utf8');
-    const guestHtml = indexHtml.replace(/RewardsDesk/g, 'Parking');
+    // One HTML file serves both products, and its static chrome is the
+    // white-label one so a guest viewing source on the parking page finds no
+    // trace of the staff app. Staff routes get their own title and description
+    // swapped in here — doing it with an inline script would be blocked by the
+    // CSP above, which allows 'self' scripts only. Read once at boot.
+    const baseHtml = readFileSync(join(dist, 'index.html'), 'utf8');
+    const guestHtml = baseHtml.replace(/RewardsDesk/g, 'Parking');
+    const staffHtml = baseHtml
+      .replace('<title>Guest Parking</title>', '<title>RewardsDesk</title>')
+      .replace(
+        'content="Pay for parking and check your time."',
+        'content="Front-desk rewards intake &amp; enrollment tracking."',
+      );
 
     app.get('*', (req, res) => {
       const guest = req.path === '/park' || req.path.startsWith('/park/');
-      res.type('html').set('Cache-Control', 'no-cache').send(guest ? guestHtml : indexHtml);
+      res.type('html').set('Cache-Control', 'no-cache').send(guest ? guestHtml : staffHtml);
     });
   } else {
     console.warn('client/dist not found — run `npm run build` before starting in production.');

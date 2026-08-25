@@ -6,20 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0F1B2D" />
     <meta name="description" content="Pay for parking and check your time." />
+    <!-- Both products are served from this one HTML file, so the static title
+         and description are the WHITE-LABEL ones: a guest who views source on
+         the parking page must not find the staff app's name there. In
+         production Express rewrites these for staff routes before sending
+         (see server/index.js); the router sets them on navigation too. -->
     <title>Guest Parking</title>
-    <script>
-      // Both products are served from this one HTML file, so the static title
-      // and description are the WHITE-LABEL ones: a guest who views source on
-      // the parking page must not find the staff app's name there. Staff pages
-      // set their own chrome here, before first paint, so neither side flashes.
-      (function () {
-        var p = location.pathname;
-        if (p === '/park' || p.indexOf('/park/') === 0) return;
-        document.title = 'RewardsDesk';
-        var d = document.querySelector('meta[name="description"]');
-        if (d) d.setAttribute('content', 'Front-desk rewards intake & enrollment tracking.');
-      })();
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

@@ -22,6 +22,12 @@ function sslConfig() {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: sslConfig(),
+  // pg defaults to 10. One dashboard load takes seven (settings + six parallel
+  // stat queries), so two staff opening it at once saturated the pool and a
+  // third request queued behind them.
+  max: Number(process.env.PGPOOL_MAX) || 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {

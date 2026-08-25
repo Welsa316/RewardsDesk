@@ -53,9 +53,13 @@ export function buildListQuery(raw, tz = 'UTC') {
   if (q.q) {
     params.push(`%${cleanStr(q.q, 100)}%`);
     const i = params.length;
+    // Every branch here must be covered by a trigram index or Postgres cannot
+    // build a BitmapOr and falls back to a sequential scan for the whole OR —
+    // which made all three GIN indexes dead weight. The bare first_name and
+    // last_name branches were the unindexed ones, and they are redundant
+    // anyway: the concatenated expression matches anything they would.
     where.push(
-      `(e.first_name ILIKE $${i} OR e.last_name ILIKE $${i} ` +
-        `OR (e.first_name || ' ' || e.last_name) ILIKE $${i} ` +
+      `((e.first_name || ' ' || e.last_name) ILIKE $${i} ` +
         `OR e.email ILIKE $${i} OR e.phone ILIKE $${i})`,
     );
   }

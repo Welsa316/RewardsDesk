@@ -73,7 +73,12 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
-  if (!auth.ready) await auth.fetchMe();
+  // Public pages have no use for auth state, and this await ran *before* the
+  // route's own chunk was fetched — so a guest scanning a lot QR waited out a
+  // guaranteed-401 round trip on a blank screen before the form even started
+  // downloading. `login` still needs it, to redirect an already-signed-in user.
+  const needsAuth = !to.meta.public || to.name === 'login';
+  if (needsAuth && !auth.ready) await auth.fetchMe();
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } };
@@ -85,6 +90,15 @@ router.beforeEach(async (to) => {
     return { name: 'dashboard' };
   }
   return true;
+});
+
+// The static HTML ships the white-label chrome, and in production Express
+// swaps it for staff routes. The router covers client-side navigation (and
+// `vite dev`, which serves index.html untouched). Parking routes are left
+// alone — Park/ParkStatus own their chrome via utils/whitelabel.
+router.afterEach((to) => {
+  if (to.path === '/park' || to.path.startsWith('/park/')) return;
+  document.title = 'RewardsDesk';
 });
 
 export default router;

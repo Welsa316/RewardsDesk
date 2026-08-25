@@ -49,6 +49,39 @@ const isExpired = computed(
 
 let alive = true;
 
+// The clock re-renders the whole component every second, so it should only run
+// when something on screen is actually counting down. It used to tick forever
+// — including on a departed or canceled session, and in a backgrounded tab the
+// page itself tells the guest to keep open.
+function startClock() {
+  stopClock();
+  // Refresh before any early return: nowMs was captured at setup, and the
+  // "expired N ago" line reads from it even when no interval is running.
+  nowMs.value = Date.now();
+  if (document.visibilityState !== 'visible') return;
+  const d = data.value;
+  if (!d?.paid_through) return;
+  if (d.status === 'departed' || d.status === 'canceled') return;
+  if (remainingMs.value <= 0) return; // already expired; nothing left to count
+  clockTimer = setInterval(() => {
+    nowMs.value = Date.now();
+    if (remainingMs.value <= 0) stopClock(); // settled on expired; nothing left to tick
+  }, 1000);
+}
+
+function stopClock() {
+  if (clockTimer) clearInterval(clockTimer);
+  clockTimer = null;
+}
+
+function onVisibility() {
+  if (document.visibilityState === 'visible') {
+    load().then(startClock);
+  } else {
+    stopClock();
+  }
+}
+
 async function load() {
   try {
     const { data: d } = await parkingPublic.status(token);
@@ -98,8 +131,9 @@ async function confirmPaymentLoop(initialNetPaid) {
 
 onMounted(async () => {
   applyParkingChrome('Guest Parking');
+  document.addEventListener('visibilitychange', onVisibility);
   const d = await load();
-  clockTimer = setInterval(() => (nowMs.value = Date.now()), 1000);
+  startClock();
   if (d && route.query.paid === '1') {
     const before = d.status === 'pending_payment' ? d.net_paid_cents : d.net_paid_cents - 1;
     if (d.status === 'pending_payment' || route.query.paid === '1') {
@@ -114,8 +148,9 @@ onBeforeUnmount(() => {
   // the parking chrome over the staff app's title, and arm a fresh timer that
   // nothing will ever clear.
   alive = false;
-  clearInterval(clockTimer);
+  stopClock();
   clearTimeout(pollTimer);
+  document.removeEventListener('visibilitychange', onVisibility);
   restoreChrome();
 });
 
