@@ -272,7 +272,35 @@ router.post('/sessions/:id/depart', async (req, res, next) => {
       [req.user.id, id],
     );
     if (!rows[0]) {
-      return res.status(422).json({ error: 'Only an active session can be checked out.' });
+      // "Only an active session can be checked out" is true and useless at a
+      // desk with a guest standing there. Two agents racing on the same car is
+      // the common case, so say what actually happened to it.
+      const { rows: cur } = await query(
+        `SELECT ps.disposition, ps.checked_out_at, u.name AS checked_out_by_name
+           FROM parking_sessions ps
+           LEFT JOIN users u ON u.id = ps.checked_out_by
+          WHERE ps.id = $1`,
+        [id],
+      );
+      const c = cur[0];
+      if (!c) return res.status(404).json({ error: 'That parking session no longer exists.' });
+      if (c.disposition === 'departed') {
+        const when = c.checked_out_at
+          ? new Date(c.checked_out_at).toLocaleTimeString('en-US', {
+              timeZone: (await parkingConfig()).timezone || 'UTC',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          : null;
+        return res.status(422).json({
+          error: `Already checked out${when ? ` at ${when}` : ''}${c.checked_out_by_name ? ` by ${c.checked_out_by_name}` : ''}.`,
+          already_departed: true,
+        });
+      }
+      if (c.disposition === 'pending_payment') {
+        return res.status(422).json({ error: "This guest hasn't completed payment, so there's nothing to check out." });
+      }
+      return res.status(422).json({ error: 'This session was canceled, so there is nothing to check out.' });
     }
     res.json({ ...rows[0], checked_out_by_name: req.user.name });
   } catch (err) {
