@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useEnrollmentsStore } from '../stores/enrollments';
 import { useToastStore } from '../stores/toast';
+import { useAuthStore } from '../stores/auth';
 import EnrollmentCard from '../components/EnrollmentCard.vue';
 import ProcessModal from '../components/ProcessModal.vue';
 import WalkUpForm from '../components/WalkUpForm.vue';
@@ -9,6 +10,7 @@ import { fullName } from '../utils/format';
 
 const store = useEnrollmentsStore();
 const toast = useToastStore();
+const auth = useAuthStore();
 
 const search = ref('');
 const selected = ref(null);
@@ -96,7 +98,7 @@ function onWalkUpCreated(data) {
           </span>
         </p>
       </div>
-      <button class="btn btn-primary !py-2.5" aria-label="Add walk-up enrollment" @click="showWalkUp = true">
+      <button v-if="auth.isAdmin" class="btn btn-primary !py-2.5" aria-label="Add walk-up enrollment" @click="showWalkUp = true">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" d="M12 5v14M5 12h14" />
         </svg>

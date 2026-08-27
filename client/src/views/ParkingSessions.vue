@@ -3,12 +3,14 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router';
 import { parking, parkingPublic } from '../api';
 import { useToastStore } from '../stores/toast';
+import { useAuthStore } from '../stores/auth';
 import ParkingStatusPill from '../components/ParkingStatusPill.vue';
 import ParkingSessionModal from '../components/ParkingSessionModal.vue';
 import NewParkingSessionModal from '../components/NewParkingSessionModal.vue';
 import { formatMoney, formatDateTime, timeAgo } from '../utils/format';
 
 const toast = useToastStore();
+const auth = useAuthStore();
 const route = useRoute();
 
 const rows = ref([]);
@@ -112,7 +114,7 @@ onMounted(async () => {
         <h1 class="font-serif text-2xl text-ink">Parking sessions</h1>
         <p class="text-sm text-slate-warm">{{ total }} vehicle{{ total === 1 ? '' : 's' }} on record</p>
       </div>
-      <button class="btn btn-primary !py-2.5" aria-label="New parking session" @click="showNew = true">
+      <button v-if="auth.isAdmin" class="btn btn-primary !py-2.5" aria-label="New parking session" @click="showNew = true">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" d="M12 5v14M5 12h14" />
         </svg>

@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/requireAdmin.js';
+import { requireAdmin, readOnlyForStaff } from '../middleware/requireAdmin.js';
 import { getStripe, publicBaseUrl } from '../lib/stripe.js';
 import { activeDailyRate } from '../lib/parkingRates.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
@@ -15,7 +15,9 @@ import {
 } from '../lib/parking.js';
 
 const router = Router();
-router.use(requireAuth);
+// Staff may view parked cars. Creating sessions, checking vehicles out,
+// extending, adding notes and refunding are all admin-only.
+router.use(requireAuth, readOnlyForStaff);
 
 const DERIVED_STATUSES = [
   'pending_payment',

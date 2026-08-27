@@ -153,8 +153,13 @@ async function resetPassword() {
 <template>
   <div class="mx-auto max-w-3xl">
     <div class="mb-5 flex items-center justify-between gap-3">
-      <h1 class="font-serif text-2xl text-ink">Staff</h1>
-      <button class="btn btn-primary !py-2" @click="openAdd">
+      <div>
+        <h1 class="font-serif text-2xl text-ink">Staff</h1>
+        <p v-if="!auth.isAdmin" class="text-sm text-slate-warm">
+          View only — ask an administrator to add or change accounts.
+        </p>
+      </div>
+      <button v-if="auth.isAdmin" class="btn btn-primary !py-2" @click="openAdd">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" d="M12 5v14M5 12h14" />
         </svg>
@@ -193,7 +198,7 @@ async function resetPassword() {
           <select
             :value="u.role"
             class="input !w-auto !py-1.5 text-sm"
-            :disabled="u.id === auth.user?.id"
+            :disabled="!auth.isAdmin || u.id === auth.user?.id"
             :aria-label="`Role for ${u.name}`"
             @change="setRole(u, $event.target.value)"
           >
@@ -208,19 +213,21 @@ async function resetPassword() {
               min="0"
               inputmode="numeric"
               class="input !w-24 !py-1.5 text-sm"
+              :disabled="!auth.isAdmin"
               :aria-label="`Monthly enrollment goal for ${u.name}`"
               placeholder="—"
               @change="setGoal(u, $event.target.value)"
             />
           </label>
           <button
+            v-if="auth.isAdmin"
             class="btn border border-sand bg-white !py-1.5 text-sm text-ink hover:bg-sand/50"
             @click="openReset(u)"
           >
             Reset password
           </button>
           <button
-            v-if="u.id !== auth.user?.id"
+            v-if="auth.isAdmin && u.id !== auth.user?.id"
             class="btn !py-1.5 text-sm"
             :class="u.active ? 'border border-sand bg-white text-red-700 hover:bg-red-50' : 'border border-sand bg-white text-ink hover:bg-sand/50'"
             :disabled="busyId === u.id"

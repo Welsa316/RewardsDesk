@@ -2,11 +2,13 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { query } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/requireAdmin.js';
+import { readOnlyForStaff } from '../middleware/requireAdmin.js';
 import { cleanStr, isEmail } from '../lib/validation.js';
 
 const router = Router();
-router.use(requireAuth, requireAdmin);
+// Staff may view the user list; creating, editing, deactivating and password
+// resets are admin-only.
+router.use(requireAuth, readOnlyForStaff);
 
 const PUBLIC_COLUMNS = 'id, name, email, role, active, monthly_goal, created_at';
 

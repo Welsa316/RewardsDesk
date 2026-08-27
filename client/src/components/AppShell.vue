@@ -35,7 +35,9 @@ const navItems = computed(() => {
     { name: 'Overview', routeName: 'parking', to: { name: 'parking' }, icon: 'car' },
     { name: 'Sessions', routeName: 'parking-sessions', to: { name: 'parking-sessions' }, icon: 'ticket' },
     { heading: true, name: 'Admin', admin: true },
-    { name: 'Staff', routeName: 'staff', to: { name: 'staff' }, icon: 'users', admin: true },
+    // Staff may view the user list, so this is not admin-gated; the page
+    // itself hides the controls they cannot use.
+    { name: 'Staff', routeName: 'staff', to: { name: 'staff' }, icon: 'users' },
     { name: 'Settings', routeName: 'settings', to: { name: 'settings' }, icon: 'settings', admin: true },
     {
       name: 'Parking Settings',

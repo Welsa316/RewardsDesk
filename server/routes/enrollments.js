@@ -129,7 +129,8 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // POST /api/enrollments — manual / walk-up creation, attributed to the agent
-router.post('/', async (req, res, next) => {
+// Walk-up creation is a write, so it is admin-only under the staff policy.
+router.post('/', requireAdmin, async (req, res, next) => {
   try {
     const b = req.body ?? {};
     const errors = {};
@@ -233,6 +234,15 @@ router.patch('/:id', async (req, res, next) => {
     const hasQualification = 'qualification' in (req.body ?? {});
     if (!hasStatus && !hasNotes && !hasQualification) {
       return res.status(400).json({ error: 'Nothing to update.' });
+    }
+
+    // Staff may change the rewards status and nothing else on the record.
+    // Checked here rather than by hiding the notes box, so a hand-rolled
+    // request cannot edit notes or set a qualification.
+    if (req.user.role !== 'admin' && (hasNotes || hasQualification)) {
+      return res.status(403).json({
+        error: 'Staff can change the status only. Ask an administrator for other edits.',
+      });
     }
 
     let newStatus = existing.status;

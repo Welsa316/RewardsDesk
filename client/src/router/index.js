@@ -51,10 +51,11 @@ const routes = [
         meta: { requiresAdmin: true },
       },
       {
+        // Viewable by staff; the page hides every control they cannot use and
+        // the server rejects the writes regardless.
         path: 'staff',
         name: 'staff',
         component: () => import('../views/Staff.vue'),
-        meta: { requiresAdmin: true },
       },
       {
         path: 'settings',
