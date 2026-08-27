@@ -7,6 +7,7 @@ import { parkingPublic } from '../api';
 import ParkingStatusPill from '../components/ParkingStatusPill.vue';
 import DurationPicker from '../components/DurationPicker.vue';
 import { formatMoney, formatDateTime, formatCountdown } from '../utils/format';
+import { formatPlate } from '../utils/states';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
 const route = useRoute();
@@ -221,7 +222,7 @@ async function submitExtend() {
             <p class="text-xs font-medium uppercase tracking-wide text-slate-warm">Confirmation</p>
             <p class="font-serif text-4xl tracking-wide text-ink">{{ data.confirmation_code }}</p>
             <p class="mt-1 text-slate-warm">
-              Plate <span class="font-semibold uppercase text-ink">{{ data.plate }}</span>
+              Plate <span class="font-semibold uppercase text-ink">{{ formatPlate(data.plate, data.plate_state) }}</span>
               <span v-if="data.room"> · Room {{ data.room }}</span>
             </p>
             <div class="mt-3"><ParkingStatusPill :status="data.status" /></div>

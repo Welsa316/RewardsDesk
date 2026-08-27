@@ -1,3 +1,4 @@
+import { cleanPlateState } from '../lib/states.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
 
 // Validates + sanitizes a public parking checkout request, attaching the
@@ -21,6 +22,9 @@ export function validateParking(req, res, next) {
 
   const plate = cleanStr(b.plate, 16).toUpperCase();
   if (!plate) errors.plate = 'License plate is required.';
+  // Unrecognised or absent states store as NULL rather than failing the
+  // submission — the plate is what identifies the car.
+  const plate_state = cleanPlateState(b.plate_state);
 
   const email = cleanStr(b.email, 254).toLowerCase();
   if (email && !isEmail(email)) errors.email = 'Enter a valid email address.';
@@ -41,6 +45,7 @@ export function validateParking(req, res, next) {
     phone,
     email: email || null,
     plate,
+    plate_state,
     vehicle_desc: cleanStr(b.vehicle_desc, 120) || null,
     room: cleanStr(b.room, 20) || null,
     lot: cleanStr(b.lot, 40) || null,

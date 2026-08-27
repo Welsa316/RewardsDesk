@@ -4,6 +4,7 @@ import Modal from './Modal.vue';
 import DurationPicker from './DurationPicker.vue';
 import { parking } from '../api';
 import { formatMoney } from '../utils/format';
+import { US_STATES, DEFAULT_STATE } from '../utils/states';
 
 const props = defineProps({ rates: { type: Object, default: null } });
 const emit = defineEmits(['close', 'created']);
@@ -13,6 +14,7 @@ const form = reactive({
   guest_name: '',
   phone: '',
   plate: '',
+  plate_state: DEFAULT_STATE,
   room: '',
   vehicle_desc: '',
   desk_method: 'cash',
@@ -38,6 +40,7 @@ async function submit() {
       kind: kind.value,
       ...form,
       plate: form.plate.toUpperCase(),
+      plate_state: form.plate_state,
       rate_type: duration.value.rate_type,
       quantity: duration.value.quantity,
     });
@@ -102,15 +105,25 @@ async function submit() {
         </div>
         <div>
           <label class="label" for="np_plate">Plate</label>
-          <input
-            id="np_plate"
-            v-model="form.plate"
-            class="input uppercase"
-            :class="{ 'input-error': fieldErrors.plate }"
-            :aria-invalid="fieldErrors.plate ? 'true' : undefined"
-            autocapitalize="characters"
-            spellcheck="false"
-          />
+          <div class="flex gap-2">
+            <input
+              id="np_plate"
+              v-model="form.plate"
+              class="input uppercase"
+              :class="{ 'input-error': fieldErrors.plate }"
+              :aria-invalid="fieldErrors.plate ? 'true' : undefined"
+              autocapitalize="characters"
+              spellcheck="false"
+            />
+            <select
+              id="np_plate_state"
+              v-model="form.plate_state"
+              class="input !w-24 shrink-0"
+              aria-label="License plate state"
+            >
+              <option v-for="st in US_STATES" :key="st" :value="st">{{ st }}</option>
+            </select>
+          </div>
           <p v-if="fieldErrors.plate" class="field-error">{{ fieldErrors.plate }}</p>
         </div>
         <div>

@@ -8,6 +8,7 @@ import { useToastStore } from '../stores/toast';
 import { useAuthStore } from '../stores/auth';
 import { formatMoney, formatDateTime } from '../utils/format';
 import { copyText } from '../utils/clipboard';
+import { formatPlate } from '../utils/states';
 
 const props = defineProps({
   sessionId: { type: Number, required: true },
@@ -189,7 +190,7 @@ function refundableCents(payment) {
 </script>
 
 <template>
-  <Modal :title="s ? `${s.plate} · ${s.confirmation_code}` : 'Parking session'" @close="emit('close')">
+  <Modal :title="s ? `${formatPlate(s.plate, s.plate_state)} · ${s.confirmation_code}` : 'Parking session'" @close="emit('close')">
     <p v-if="loadError" class="text-center text-slate-warm">{{ loadError }}</p>
     <div v-else-if="!s" class="h-48 animate-pulse rounded-xl border border-sand bg-white/60" />
 

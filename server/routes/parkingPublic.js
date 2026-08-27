@@ -126,12 +126,17 @@ router.post(
       // The status token is only handed back when the phone matches too — a
       // plate is visible on the car, so plate alone is not proof of ownership
       // (the status page carries the room number).
+      // Match on plate + state when both are known, so ABC123 (LA) and
+      // ABC123 (TX) are different cars. Rows recorded before plate_state
+      // existed have NULL and still match on the plate alone.
       const { rows: dupRows } = await query(
         `SELECT status_token, paid_through, phone
            FROM parking_sessions
-          WHERE plate = $1 AND disposition = 'active' AND paid_through > now()
+          WHERE plate = $1
+            AND (plate_state IS NULL OR $2::char(2) IS NULL OR plate_state = $2)
+            AND disposition = 'active' AND paid_through > now()
           ORDER BY paid_through DESC LIMIT 1`,
-        [c.plate],
+        [c.plate, c.plate_state],
       );
       if (dupRows[0]) {
         const dup = dupRows[0];
@@ -150,11 +155,11 @@ router.post(
         const session = await insertSession(
           client,
           `INSERT INTO parking_sessions
-             (confirmation_code, guest_name, phone, email, plate, vehicle_desc, room, lot,
+             (confirmation_code, guest_name, phone, email, plate, plate_state, vehicle_desc, room, lot,
               kind, rate_type, quantity, disposition)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'online',$9,$10,'pending_payment')
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'online',$10,$11,'pending_payment')
            RETURNING id, status_token, confirmation_code`,
-          [c.guest_name, c.phone, c.email, c.plate, c.vehicle_desc, c.room, lot, c.rate_type, c.quantity],
+          [c.guest_name, c.phone, c.email, c.plate, c.plate_state, c.vehicle_desc, c.room, lot, c.rate_type, c.quantity],
         );
         const { rows: payRows } = await client.query(
           `INSERT INTO parking_payments
@@ -227,7 +232,7 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
 
     const s = await parkingSettings();
     const statusSql = derivedStatusSql('ps', s.parking_expiring_soon_minutes);
-    const selectSession = `SELECT ps.id, ps.confirmation_code, ps.plate, ps.room, ps.kind, ps.rate_type,
+    const selectSession = `SELECT ps.id, ps.confirmation_code, ps.plate, ps.plate_state, ps.room, ps.kind, ps.rate_type,
               ps.starts_at, ps.paid_through, ${statusSql} AS status
          FROM parking_sessions ps
         WHERE ps.status_token = $1`;
@@ -263,6 +268,7 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
       brand_name: s.brand_name,
       confirmation_code: session.confirmation_code,
       plate: session.plate,
+      plate_state: session.plate_state,
       room: session.room,
       kind: session.kind,
       status: session.status,

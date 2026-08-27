@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router';
 import { parkingPublic } from '../api';
 import DurationPicker from '../components/DurationPicker.vue';
 import { formatMoney } from '../utils/format';
+import { US_STATES, DEFAULT_STATE } from '../utils/states';
 import PromoStrip from '../components/PromoStrip.vue';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
@@ -26,6 +27,7 @@ const form = reactive({
   guest_name: '',
   phone: '',
   plate: '',
+  plate_state: DEFAULT_STATE,
   room: '',
   email: '',
   vehicle_desc: '',
@@ -36,13 +38,22 @@ const duration = ref({ rate_type: 'daily', quantity: 1 });
 
 // Prefill contract (also used by the future SMS app):
 // /park?src=<lot>&name=&phone=&plate=&room=&rate=daily&qty=N
-const PARAM_MAP = { name: 'guest_name', phone: 'phone', plate: 'plate', room: 'room' };
+const PARAM_MAP = { name: 'guest_name', phone: 'phone', plate: 'plate', room: 'room', state: 'plate_state' };
 
 onMounted(async () => {
   applyParkingChrome('Guest Parking');
   const q = route.query;
   for (const [param, field] of Object.entries(PARAM_MAP)) {
-    if (typeof q[param] === 'string' && q[param].trim()) form[field] = q[param].trim();
+    if (typeof q[param] !== 'string' || !q[param].trim()) continue;
+    const value = q[param].trim();
+    if (field === 'plate_state') {
+      // An unrecognised code would leave the select showing nothing, so keep
+      // the default rather than accepting whatever the link carried.
+      const code = value.toUpperCase();
+      if (US_STATES.includes(code)) form.plate_state = code;
+      continue;
+    }
+    form[field] = value;
   }
   if (typeof q.src === 'string' && q.src.trim()) form.lot = q.src.trim();
   const qty = Number(q.qty);
@@ -97,6 +108,7 @@ async function submit() {
     const { data } = await parkingPublic.checkout({
       ...form,
       plate: form.plate.toUpperCase(),
+      plate_state: form.plate_state,
       rate_type: duration.value.rate_type,
       quantity: duration.value.quantity,
     });
@@ -220,9 +232,9 @@ async function submit() {
           <p v-if="fieldErrors.phone" id="pk_phone-error" class="field-error">{{ fieldErrors.phone }}</p>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label" for="pk_plate">License plate</label>
+        <div>
+          <label class="label" for="pk_plate">License plate</label>
+          <div class="flex gap-2">
             <input
               id="pk_plate"
               v-model="form.plate"
@@ -237,12 +249,21 @@ async function submit() {
               placeholder="ABC1234"
               @input="clearError('plate')"
             />
-            <p v-if="fieldErrors.plate" id="pk_plate-error" class="field-error">{{ fieldErrors.plate }}</p>
+            <select
+              id="pk_plate_state"
+              v-model="form.plate_state"
+              class="input !w-24 shrink-0"
+              aria-label="License plate state"
+            >
+              <option v-for="st in US_STATES" :key="st" :value="st">{{ st }}</option>
+            </select>
           </div>
-          <div>
-            <label class="label" for="pk_room">Room <span class="text-slate-warm">(optional)</span></label>
-            <input id="pk_room" v-model="form.room" name="room" class="input" autocomplete="off" />
-          </div>
+          <p v-if="fieldErrors.plate" id="pk_plate-error" class="field-error">{{ fieldErrors.plate }}</p>
+        </div>
+
+        <div>
+          <label class="label" for="pk_room">Room <span class="text-slate-warm">(optional)</span></label>
+          <input id="pk_room" v-model="form.room" name="room" class="input" autocomplete="off" />
         </div>
 
         <div>

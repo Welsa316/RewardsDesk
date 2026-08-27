@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { parking, parkingPublic } from '../api';
 import { useToastStore } from '../stores/toast';
 import { useAuthStore } from '../stores/auth';
+import { formatPlate } from '../utils/states';
 import ParkingStatusPill from '../components/ParkingStatusPill.vue';
 import ParkingSessionModal from '../components/ParkingSessionModal.vue';
 import NewParkingSessionModal from '../components/NewParkingSessionModal.vue';
@@ -172,7 +173,7 @@ onMounted(async () => {
       >
         <div class="min-w-0 flex-1">
           <p class="font-medium text-ink">
-            <span class="font-semibold uppercase">{{ s.plate }}</span>
+            <span class="font-semibold uppercase">{{ formatPlate(s.plate, s.plate_state) }}</span>
             <span class="text-slate-warm"> · {{ s.guest_name }}</span>
             <span v-if="s.room" class="text-slate-warm"> · Rm {{ s.room }}</span>
           </p>

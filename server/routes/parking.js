@@ -7,6 +7,7 @@ import { requireAdmin, readOnlyForStaff } from '../middleware/requireAdmin.js';
 import { getStripe, publicBaseUrl } from '../lib/stripe.js';
 import { activeDailyRate } from '../lib/parkingRates.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
+import { cleanPlateState } from '../lib/states.js';
 import {
   priceCents,
   durationHours,
@@ -81,7 +82,7 @@ router.get('/sessions', async (req, res, next) => {
       params.push(`%${q}%`);
       const i = params.length;
       where.push(
-        `(ps.plate ILIKE $${i} OR ps.guest_name ILIKE $${i} OR ps.phone ILIKE $${i} OR ps.confirmation_code ILIKE $${i})`,
+        `(ps.plate ILIKE $${i} OR ps.plate_state ILIKE $${i} OR ps.guest_name ILIKE $${i} OR ps.phone ILIKE $${i} OR ps.confirmation_code ILIKE $${i})`,
       );
     }
 
@@ -187,6 +188,7 @@ router.post('/sessions', async (req, res, next) => {
     const guest_name = cleanStr(b.guest_name, 100);
     if (!guest_name) errors.guest_name = 'Name is required.';
     const plate = cleanStr(b.plate, 16).toUpperCase();
+    const plate_state = cleanPlateState(b.plate_state);
     if (!plate) errors.plate = 'License plate is required.';
     const phone = cleanStr(b.phone, 32);
     if (phone && !isPhone(phone)) errors.phone = 'Enter a valid phone number.';
@@ -231,14 +233,14 @@ router.post('/sessions', async (req, res, next) => {
         try {
           const { rows } = await client.query(
             `INSERT INTO parking_sessions
-               (confirmation_code, guest_name, phone, email, plate, vehicle_desc, room, lot, kind,
+               (confirmation_code, guest_name, phone, email, plate, plate_state, vehicle_desc, room, lot, kind,
                 desk_method, comp_reason, comp_authorized_by, rate_type, quantity, disposition,
                 starts_at, paid_through, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'active',
-                     now(), now() + make_interval(hours => $15), $16)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'active',
+                     now(), now() + make_interval(hours => $16), $17)
              RETURNING *`,
             [
-              generateConfirmationCode(), guest_name, phone || null, email || null, plate,
+              generateConfirmationCode(), guest_name, phone || null, email || null, plate, plate_state,
               cleanStr(b.vehicle_desc, 120) || null, cleanStr(b.room, 20) || null, lot, kind,
               desk_method, comp_reason, comp_authorized_by, rate_type, quantity, hours, req.user.id,
             ],
@@ -641,6 +643,7 @@ const EXPORT_COLUMNS = [
   ['phone', 'Phone'],
   ['email', 'Email'],
   ['plate', 'Plate'],
+  ['plate_state', 'Plate state'],
   ['vehicle_desc', 'Vehicle'],
   ['room', 'Room'],
   ['lot', 'Lot'],
