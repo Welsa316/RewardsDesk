@@ -24,7 +24,7 @@ const busy = ref(false);
 
 // Extend
 const extendOpen = ref(false);
-const extendDuration = ref({ rate_type: 'hourly', quantity: 1 });
+const extendDuration = ref({ rate_type: 'daily', quantity: 1 });
 const extendMethod = ref('cash');
 
 // Notes

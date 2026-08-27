@@ -9,6 +9,7 @@ import {
   derivedStatusSql,
 } from '../lib/parking.js';
 import { reconcilePendingCheckouts } from '../lib/parkingActivation.js';
+import { activeDailyRate } from '../lib/parkingRates.js';
 import { validateParking } from '../middleware/validateParking.js';
 import {
   parkingCheckoutPerMinute,
@@ -27,7 +28,7 @@ async function parkingSettings() {
     // to connect back to it. An unset brand shows something plain rather than
     // something wrong.
     `SELECT COALESCE(NULLIF(parking_brand_name, ''), 'Guest Parking') AS brand_name,
-            parking_hourly_cents, parking_daily_cents, parking_lots,
+            parking_daily_cents, parking_lots,
             parking_expiring_soon_minutes
        FROM settings WHERE id = 1`,
   );
@@ -38,10 +39,13 @@ async function parkingSettings() {
 router.get('/public/parking-config', async (req, res, next) => {
   try {
     const s = await parkingSettings();
+    const { rateCents, standardCents, promo } = await activeDailyRate(s.parking_daily_cents);
     res.json({
       brand_name: s.brand_name,
-      hourly_cents: s.parking_hourly_cents,
-      daily_cents: s.parking_daily_cents,
+      // The effective rate, so the form quotes exactly what will be charged.
+      daily_cents: rateCents,
+      standard_daily_cents: standardCents,
+      promo, // null unless a promo is running; drives the banner
       lots: s.parking_lots,
     });
   } catch (err) {
@@ -106,10 +110,8 @@ router.post(
       const c = req.cleanParking;
       const s = await parkingSettings();
 
-      const amount = priceCents(c.rate_type, c.quantity, {
-        parking_hourly_cents: s.parking_hourly_cents,
-        parking_daily_cents: s.parking_daily_cents,
-      });
+      const { rateCents } = await activeDailyRate(s.parking_daily_cents);
+      const amount = priceCents(c.rate_type, c.quantity, { parking_daily_cents: rateCents });
       if (amount === null) {
         return res.status(422).json({
           error: 'Please fix the highlighted fields.',
@@ -269,7 +271,7 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
       server_now: new Date().toISOString(), // lets the countdown ignore client clock skew
       net_paid_cents: payRows[0].net_paid_cents,
       receipt_url: payRows[0].receipt_url,
-      rates: { hourly_cents: s.parking_hourly_cents, daily_cents: s.parking_daily_cents },
+      rates: { daily_cents: (await activeDailyRate(s.parking_daily_cents)).rateCents },
     });
   } catch (err) {
     next(err);
@@ -286,14 +288,12 @@ router.post(
       const token = req.params.token;
       if (!UUID_RE.test(token)) return res.status(404).json({ error: 'Not found' });
 
-      const rate_type = req.body?.rate_type === 'daily' ? 'daily' : req.body?.rate_type === 'hourly' ? 'hourly' : null;
+      const rate_type = req.body?.rate_type === 'daily' ? 'daily' : null;
       const quantity = Number(req.body?.quantity);
       const s = await parkingSettings();
+      const { rateCents } = await activeDailyRate(s.parking_daily_cents);
       const amount = rate_type
-        ? priceCents(rate_type, quantity, {
-            parking_hourly_cents: s.parking_hourly_cents,
-            parking_daily_cents: s.parking_daily_cents,
-          })
+        ? priceCents(rate_type, quantity, { parking_daily_cents: rateCents })
         : null;
       if (amount === null) {
         return res.status(422).json({ error: 'Choose a valid extension duration.' });

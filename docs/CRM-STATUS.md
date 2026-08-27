@@ -50,7 +50,7 @@ MODULE 2 — GUEST PARKING (added) — DELIVERED
     title/favicon; no rewards or hotel-app branding visible to guests
 [x] Guest flow: scan lot QR -> /park -> name, phone, license plate, room,
     optional email -> pick duration -> pay -> private status link
-[x] Pricing: hourly + daily, admin-editable; hourly total auto-capped at the
+[x] Pricing: daily only, admin-editable; scheduled promo rates override the
     daily rate; prices always computed server-side (client amounts never trusted)
 [x] Stripe hosted Checkout (card data never touches our server; Apple/Google Pay
     supported automatically)
@@ -65,7 +65,7 @@ MODULE 2 — GUEST PARKING (added) — DELIVERED
 [x] Overstay detection + overdue filter
 [x] Parking capacity dashboard (on lot / available / leaving today / overdue)
 [x] Revenue reporting: today, week, month, custom range, average transaction,
-    paid vehicles, average length of stay, hourly vs daily split, refund totals
+    paid vehicles, average length of stay, refund totals
 [x] Refunds — full or partial, admin-only, reason required, fully audited
 [x] Receipts — Stripe auto-emails; receipt URL stored + viewable by staff
 [x] Session notes with author + timestamp

@@ -5,13 +5,16 @@ import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { parkingPublic } from '../api';
 import DurationPicker from '../components/DurationPicker.vue';
+import { formatMoney } from '../utils/format';
 import PromoStrip from '../components/PromoStrip.vue';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
 const route = useRoute();
 
 const brand = ref('Guest Parking');
-const rates = ref(null); // { hourly_cents, daily_cents }
+const rates = ref(null); // { daily_cents }
+const standardCents = ref(0);
+const promo = ref(null); // { name, rate_cents, end_date } while one is running
 const loadError = ref(false);
 const submitting = ref(false);
 const formError = ref('');
@@ -32,7 +35,7 @@ const form = reactive({
 const duration = ref({ rate_type: 'daily', quantity: 1 });
 
 // Prefill contract (also used by the future SMS app):
-// /park?src=<lot>&name=&phone=&plate=&room=&rate=hourly|daily&qty=N
+// /park?src=<lot>&name=&phone=&plate=&room=&rate=daily&qty=N
 const PARAM_MAP = { name: 'guest_name', phone: 'phone', plate: 'plate', room: 'room' };
 
 onMounted(async () => {
@@ -43,14 +46,16 @@ onMounted(async () => {
   }
   if (typeof q.src === 'string' && q.src.trim()) form.lot = q.src.trim();
   const qty = Number(q.qty);
-  if ((q.rate === 'hourly' || q.rate === 'daily') && Number.isInteger(qty) && qty > 0) {
+  if (q.rate === 'daily' && Number.isInteger(qty) && qty > 0) {
     duration.value = { rate_type: q.rate, quantity: Math.min(qty, q.rate === 'daily' ? 14 : 23) };
   }
 
   try {
     const { data } = await parkingPublic.config();
     brand.value = data.brand_name;
-    rates.value = { hourly_cents: data.hourly_cents, daily_cents: data.daily_cents };
+    rates.value = { daily_cents: data.daily_cents };
+    standardCents.value = data.standard_daily_cents || data.daily_cents;
+    promo.value = data.promo || null;
     applyParkingChrome(parkingTitle(data.brand_name));
   } catch {
     loadError.value = true;
@@ -59,6 +64,13 @@ onMounted(async () => {
 onBeforeUnmount(restoreChrome);
 
 const canSubmit = computed(() => !submitting.value && rates.value);
+
+function formatPromoEnd(dateStr) {
+  return new Date(`${String(dateStr).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 function formatUntil(iso) {
   return new Date(iso).toLocaleString(undefined, {
@@ -115,6 +127,17 @@ async function submit() {
       </header>
 
       <PromoStrip />
+
+      <!-- A rate promo is a price change, so it is stated plainly next to the
+           standard rate rather than dressed up as marketing. -->
+      <p
+        v-if="promo"
+        class="mb-4 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-center text-sm text-green-900"
+      >
+        <strong>{{ promo.name }}: {{ formatMoney(promo.rate_cents) }}/day</strong>
+        through {{ formatPromoEnd(promo.end_date) }}
+        <span class="ml-1 text-green-800/70 line-through">{{ formatMoney(standardCents) }}/day</span>
+      </p>
 
       <p
         v-if="showCanceled"
@@ -264,7 +287,7 @@ async function submit() {
 
         <div v-if="rates">
           <p class="label">How long are you parking?</p>
-          <DurationPicker v-model="duration" :rates="rates" />
+          <DurationPicker v-model="duration" :rates="rates" :standard-cents="standardCents" />
         </div>
         <div v-else class="h-32 animate-pulse rounded-xl border border-sand bg-white/60" />
 

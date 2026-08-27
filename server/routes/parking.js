@@ -5,6 +5,7 @@ import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { getStripe, publicBaseUrl } from '../lib/stripe.js';
+import { activeDailyRate } from '../lib/parkingRates.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
 import {
   priceCents,
@@ -30,7 +31,7 @@ const first = (v) => (Array.isArray(v) ? v[0] : v);
 
 async function parkingConfig() {
   const { rows } = await query(
-    `SELECT parking_capacity, parking_expiring_soon_minutes, parking_hourly_cents,
+    `SELECT parking_capacity, parking_expiring_soon_minutes,
             parking_daily_cents, parking_lots, timezone
        FROM settings WHERE id = 1`,
   );
@@ -190,7 +191,7 @@ router.post('/sessions', async (req, res, next) => {
     const email = cleanStr(b.email, 254).toLowerCase();
     if (email && !isEmail(email)) errors.email = 'Enter a valid email address.';
 
-    const rate_type = b.rate_type === 'daily' ? 'daily' : b.rate_type === 'hourly' ? 'hourly' : null;
+    const rate_type = b.rate_type === 'daily' ? 'daily' : null;
     const quantity = Number(b.quantity);
 
     let desk_method = null;
@@ -208,11 +209,9 @@ router.post('/sessions', async (req, res, next) => {
     }
 
     const cfg = await parkingConfig();
+    const { rateCents } = await activeDailyRate(cfg.parking_daily_cents);
     const amount = rate_type
-      ? priceCents(rate_type, quantity, {
-          parking_hourly_cents: cfg.parking_hourly_cents,
-          parking_daily_cents: cfg.parking_daily_cents,
-        })
+      ? priceCents(rate_type, quantity, { parking_daily_cents: rateCents })
       : null;
     if (amount === null) errors.quantity = 'Choose a valid duration.';
 
@@ -326,16 +325,14 @@ router.post('/sessions/:id/extend', async (req, res, next) => {
     const method = ['cash', 'card_terminal', 'comp'].includes(req.body?.method)
       ? req.body.method
       : null;
-    const rate_type = req.body?.rate_type === 'daily' ? 'daily' : req.body?.rate_type === 'hourly' ? 'hourly' : null;
+    const rate_type = req.body?.rate_type === 'daily' ? 'daily' : null;
     const quantity = Number(req.body?.quantity);
     if (!method) return res.status(422).json({ error: 'Choose how the extension is paid.' });
 
     const cfg = await parkingConfig();
+    const { rateCents } = await activeDailyRate(cfg.parking_daily_cents);
     const amount = rate_type
-      ? priceCents(rate_type, quantity, {
-          parking_hourly_cents: cfg.parking_hourly_cents,
-          parking_daily_cents: cfg.parking_daily_cents,
-        })
+      ? priceCents(rate_type, quantity, { parking_daily_cents: rateCents })
       : null;
     if (amount === null) return res.status(422).json({ error: 'Choose a valid duration.' });
 
@@ -581,6 +578,8 @@ router.get('/revenue', async (req, res, next) => {
       `SELECT
          COALESCE(SUM(amount_cents) FILTER (WHERE type='charge'), 0)::int AS charges_cents,
          COALESCE(SUM(amount_cents) FILTER (WHERE type='refund'), 0)::int AS refunds_cents,
+         -- Hourly is no longer sold; this remains so historical revenue still
+         -- reconciles against sessions bought before the change.
          COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND rate_type='hourly'), 0)::int AS hourly_cents,
          COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND rate_type='daily'), 0)::int AS daily_cents,
          COALESCE(ROUND(AVG(amount_cents) FILTER (WHERE type='charge' AND amount_cents > 0)), 0)::int AS avg_transaction_cents,

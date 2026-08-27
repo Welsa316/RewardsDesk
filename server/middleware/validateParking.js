@@ -25,8 +25,10 @@ export function validateParking(req, res, next) {
   const email = cleanStr(b.email, 254).toLowerCase();
   if (email && !isEmail(email)) errors.email = 'Enter a valid email address.';
 
-  const rate_type = b.rate_type === 'daily' ? 'daily' : b.rate_type === 'hourly' ? 'hourly' : null;
-  if (!rate_type) errors.rate_type = 'Choose hourly or daily parking.';
+  // Daily only. A prefilled link carrying rate=hourly (the old contract) is
+  // rejected rather than silently repriced.
+  const rate_type = b.rate_type === 'daily' ? 'daily' : null;
+  if (!rate_type) errors.rate_type = 'Parking is sold by the day.';
   const quantity = Number(b.quantity);
   if (!Number.isInteger(quantity) || quantity < 1) errors.quantity = 'Choose a duration.';
 

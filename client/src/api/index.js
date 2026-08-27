@@ -89,6 +89,13 @@ export const promos = {
   remove: (id) => http.delete(`/promos/${id}`),
 };
 
+export const parkingPromos = {
+  list: () => http.get('/parking-promos'),
+  create: (payload) => http.post('/parking-promos', payload),
+  update: (id, payload) => http.patch(`/parking-promos/${id}`, payload),
+  remove: (id) => http.delete(`/parking-promos/${id}`),
+};
+
 export const parkingPublic = {
   config: () => http.get('/public/parking-config'),
   checkout: (payload) => http.post('/parking/checkout', payload),

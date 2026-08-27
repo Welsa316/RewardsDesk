@@ -55,8 +55,8 @@ admin-configured parking brand name (Parking Settings) — no rewards or hotel-a
 a neutral tab title and favicon.
 
 **Guest flow** — scan a lot QR → `/park?src=<lot>` → name / phone / plate / room
-(optional) / email (optional, for the Stripe receipt) → pick hourly or daily duration
-(hourly totals are capped at the daily rate) → pay on Stripe's hosted checkout →
+(optional) / email (optional, for the Stripe receipt) → choose how many days →
+pay on Stripe's hosted checkout →
 land on a private status page `/park/s/<token>` with a live countdown, receipt link,
 and self-serve **Extend** (pays the difference, never bills dead time:
 `new paid-through = max(paid-through, now) + duration`).
@@ -65,7 +65,7 @@ and self-serve **Extend** (pays the difference, never bills dead time:
 
 - **Overview** — vehicles on lot vs capacity, leaving today, expired/overdue (deep-links
   to the filtered list), revenue today, and a revenue panel (today/week/month, custom
-  range, avg transaction, paid vehicles, avg stay, hourly-vs-daily split, refunds).
+  range, avg transaction, paid vehicles, avg stay, refunds).
 - **Sessions** — live list with search (plate/name/phone/confirmation #), status filters
   (Active / Expiring soon / Expired / Departed / Comp), session detail with the payments
   audit trail, notes (author + timestamp), staff extensions (cash/terminal/comp),
@@ -73,7 +73,7 @@ and self-serve **Extend** (pays the difference, never bills dead time:
   (reason + authorizer recorded) or **paid at desk** (cash / card terminal).
 - **Refunds** (admin) — full or partial per payment; Stripe charges refund through
   Stripe, desk/cash charges are recorded-only; every refund carries actor + reason.
-- **Parking Settings** (admin) — brand name, hourly/daily rates, capacity,
+- **Parking Settings** (admin) — brand name, daily rate, capacity,
   "expiring soon" window, lot list. **QR & links** prints a white-label QR per lot.
 
 **Statuses** are derived at read time from `paid_through` (no cron): Active → Expiring
@@ -87,7 +87,7 @@ webhook (`/api/parking/webhook`, signature-verified, idempotent) is the single s
 of payment truth.
 
 **Prefilled-link contract** (for a future SMS/messaging integration — no SMS is built
-into this app): `/park?src=<lot>&name=&phone=&plate=&room=&rate=hourly|daily&qty=N`.
+into this app): `/park?src=<lot>&name=&phone=&plate=&room=&rate=daily&qty=N`.
 All params optional; the form prefills and the server re-validates everything.
 
 **Local Stripe testing** — set `STRIPE_SECRET_KEY` (test mode) and pay with card

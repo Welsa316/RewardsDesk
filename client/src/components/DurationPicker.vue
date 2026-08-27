@@ -5,22 +5,22 @@ import { formatMoney } from '../utils/format';
 // Display-only duration + price picker. The server independently recomputes
 // the price from the same rules; this component never submits an amount.
 const props = defineProps({
-  rates: { type: Object, required: true }, // { hourly_cents, daily_cents }
+  rates: { type: Object, required: true }, // { daily_cents }
+  // The pre-promo rate, shown struck through when a promo is running.
+  standardCents: { type: Number, default: 0 },
   modelValue: { type: Object, required: true }, // { rate_type, quantity }
 });
 const emit = defineEmits(['update:modelValue']);
 
-const HOURLY_MAX = 23;
+// Parking is sold by the day only.
 const DAILY_MAX = 14;
 
 const rateType = computed(() => props.modelValue.rate_type);
 const quantity = computed(() => props.modelValue.quantity);
-const maxQty = computed(() => (rateType.value === 'daily' ? DAILY_MAX : HOURLY_MAX));
-
-function setRate(rate_type) {
-  if (rate_type === rateType.value) return;
-  emit('update:modelValue', { rate_type, quantity: 1 });
-}
+const maxQty = computed(() => DAILY_MAX);
+const discounted = computed(
+  () => props.standardCents > 0 && props.rates.daily_cents < props.standardCents,
+);
 
 function step(delta) {
   const next = Math.min(maxQty.value, Math.max(1, quantity.value + delta));
@@ -34,52 +34,22 @@ function setQuantity(n) {
 
 // Buying a week meant six taps on "+", and the 14-day maximum meant thirteen —
 // standing outside on a phone. These cover almost every real stay in one tap.
-const QUICK_PICKS = { hourly: [1, 2, 4, 8], daily: [1, 2, 3, 7] };
-const quickPicks = computed(() =>
-  QUICK_PICKS[rateType.value].filter((n) => n <= maxQty.value),
-);
+const QUICK_PICKS = [1, 2, 3, 7];
+const quickPicks = computed(() => QUICK_PICKS.filter((n) => n <= maxQty.value));
 
-const totalCents = computed(() => {
-  if (rateType.value === 'daily') return quantity.value * props.rates.daily_cents;
-  return Math.min(quantity.value * props.rates.hourly_cents, props.rates.daily_cents);
-});
-
-const capped = computed(
-  () =>
-    rateType.value === 'hourly' &&
-    quantity.value * props.rates.hourly_cents > props.rates.daily_cents,
-);
-
-const unitLabel = computed(() => {
-  const q = quantity.value;
-  return rateType.value === 'daily' ? (q === 1 ? 'day' : 'days') : q === 1 ? 'hour' : 'hours';
-});
+const totalCents = computed(() => quantity.value * props.rates.daily_cents);
+const unitLabel = computed(() => (quantity.value === 1 ? 'day' : 'days'));
 </script>
 
 <template>
   <div>
-    <div class="flex rounded-xl border border-sand p-1" role="radiogroup" aria-label="Parking rate">
-      <button
-        type="button"
-        role="radio"
-        :aria-checked="rateType === 'hourly'"
-        class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition"
-        :class="rateType === 'hourly' ? 'bg-ink text-white' : 'text-slate-warm hover:text-ink'"
-        @click="setRate('hourly')"
-      >
-        Hourly · {{ formatMoney(rates.hourly_cents) }}/hr
-      </button>
-      <button
-        type="button"
-        role="radio"
-        :aria-checked="rateType === 'daily'"
-        class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition"
-        :class="rateType === 'daily' ? 'bg-ink text-white' : 'text-slate-warm hover:text-ink'"
-        @click="setRate('daily')"
-      >
-        Daily · {{ formatMoney(rates.daily_cents) }}/day
-      </button>
-    </div>
+    <p class="rounded-xl border border-sand bg-white px-4 py-2.5 text-center text-sm">
+      <span class="font-semibold text-ink">{{ formatMoney(rates.daily_cents) }}</span
+      ><span class="text-slate-warm">/day</span>
+      <span v-if="discounted" class="ml-2 text-slate-warm line-through">
+        {{ formatMoney(standardCents) }}
+      </span>
+    </p>
 
     <div class="mt-3 flex items-center justify-between rounded-xl border border-sand bg-white px-4 py-3">
       <button
@@ -122,12 +92,9 @@ const unitLabel = computed(() => {
         :aria-pressed="quantity === n"
         @click="setQuantity(n)"
       >
-        {{ n }} {{ rateType === 'daily' ? (n === 1 ? 'day' : 'days') : (n === 1 ? 'hour' : 'hours') }}
+        {{ n }} {{ n === 1 ? 'day' : 'days' }}
       </button>
     </div>
 
-    <p v-if="capped" class="mt-2 text-center text-xs text-slate-warm">
-      Capped at the daily rate — you never pay more than {{ formatMoney(rates.daily_cents) }} per day.
-    </p>
   </div>
 </template>

@@ -3,30 +3,28 @@
 // display status (guest page, staff list, dashboard must never disagree).
 import crypto from 'node:crypto';
 
-export const HOURLY_MIN = 1;
-export const HOURLY_MAX = 23;
 export const DAILY_MIN = 1;
 export const DAILY_MAX = 14;
 
+// Parking is sold by the day only. Hourly is no longer offered, but sessions
+// sold under it still exist, so the rate_type column and its 'hourly' value
+// stay readable — this just refuses to price a new one.
+export const SELLABLE_RATE_TYPES = ['daily'];
+
 // The sole price authority. Client-sent amounts are never trusted anywhere.
 // Returns integer cents, or null for an invalid rate/quantity combination.
+// `rates.parking_daily_cents` is the effective rate for the day, which the
+// caller resolves through activeDailyRate() so a promo is applied consistently.
 export function priceCents(rateType, quantity, rates) {
   const qty = Number(quantity);
   if (!Number.isInteger(qty)) return null;
-  if (rateType === 'hourly') {
-    if (qty < HOURLY_MIN || qty > HOURLY_MAX) return null;
-    // Hourly total is capped at the daily rate — guests never pay more per
-    // 23 hours than a day would cost.
-    return Math.min(qty * rates.parking_hourly_cents, rates.parking_daily_cents);
-  }
-  if (rateType === 'daily') {
-    if (qty < DAILY_MIN || qty > DAILY_MAX) return null;
-    return qty * rates.parking_daily_cents;
-  }
-  return null;
+  if (rateType !== 'daily') return null;
+  if (qty < DAILY_MIN || qty > DAILY_MAX) return null;
+  return qty * rates.parking_daily_cents;
 }
 
 export function durationHours(rateType, quantity) {
+  // 'hourly' remains only for historical sessions sold before daily-only.
   return rateType === 'daily' ? Number(quantity) * 24 : Number(quantity);
 }
 

@@ -98,7 +98,7 @@ onMounted(async () => {
   load();
   try {
     const { data } = await parkingPublic.config();
-    rates.value = { hourly_cents: data.hourly_cents, daily_cents: data.daily_cents };
+    rates.value = { daily_cents: data.daily_cents };
   } catch {
     // new-session modal will show a rates error if opened
   }

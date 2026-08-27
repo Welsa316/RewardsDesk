@@ -8,7 +8,6 @@ const toast = useToastStore();
 const form = reactive({
   parking_brand_name: '',
   parking_capacity: 0,
-  hourly_dollars: '',
   daily_dollars: '',
   parking_expiring_soon_minutes: 60,
   parking_lots: [],
@@ -25,7 +24,6 @@ async function init() {
     const { data } = await api.get();
     form.parking_brand_name = data.parking_brand_name || '';
     form.parking_capacity = data.parking_capacity;
-    form.hourly_dollars = (data.parking_hourly_cents / 100).toFixed(2);
     form.daily_dollars = (data.parking_daily_cents / 100).toFixed(2);
     form.parking_expiring_soon_minutes = data.parking_expiring_soon_minutes;
     form.parking_lots = [...(data.parking_lots || [])];
@@ -47,9 +45,8 @@ function removeLot(l) {
 }
 
 async function save() {
-  const hourly = Math.round(Number(form.hourly_dollars) * 100);
   const daily = Math.round(Number(form.daily_dollars) * 100);
-  if (!Number.isInteger(hourly) || hourly < 0 || !Number.isInteger(daily) || daily < 0) {
+  if (!Number.isInteger(daily) || daily < 0) {
     toast.error('Rates must be valid dollar amounts.');
     return;
   }
@@ -58,7 +55,6 @@ async function save() {
     await api.update({
       parking_brand_name: form.parking_brand_name,
       parking_capacity: Number(form.parking_capacity),
-      parking_hourly_cents: hourly,
       parking_daily_cents: daily,
       parking_expiring_soon_minutes: Number(form.parking_expiring_soon_minutes),
       parking_lots: form.parking_lots,
@@ -94,10 +90,7 @@ async function save() {
           </p>
         </div>
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="label" for="pb_hourly">Hourly rate ($)</label>
-            <input id="pb_hourly" v-model="form.hourly_dollars" class="input" inputmode="decimal" />
-          </div>
+          
           <div>
             <label class="label" for="pb_daily">Daily rate ($)</label>
             <input id="pb_daily" v-model="form.daily_dollars" class="input" inputmode="decimal" />

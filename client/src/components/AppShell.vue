@@ -45,6 +45,13 @@ const navItems = computed(() => {
       admin: true,
     },
     { name: 'Promo images', routeName: 'promos', to: { name: 'promos' }, icon: 'image', admin: true },
+    {
+      name: 'Rate promos',
+      routeName: 'parking-promos',
+      to: { name: 'parking-promos' },
+      icon: 'tag',
+      admin: true,
+    },
     { name: 'QR & links', routeName: 'qr', to: { name: 'qr' }, icon: 'qr', admin: true },
   ];
   return all.filter((i) => !i.admin || auth.isAdmin);
@@ -52,6 +59,7 @@ const navItems = computed(() => {
 
 const TITLES = {
   promos: 'Promo images',
+  'parking-promos': 'Rate promos',
   dashboard: 'Dashboard',
   queue: 'Queue',
   enrollments: 'Enrollments',

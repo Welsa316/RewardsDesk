@@ -26,8 +26,7 @@ const fieldErrors = reactive({});
 
 const totalCents = computed(() => {
   if (!props.rates) return 0;
-  if (duration.value.rate_type === 'daily') return duration.value.quantity * props.rates.daily_cents;
-  return Math.min(duration.value.quantity * props.rates.hourly_cents, props.rates.daily_cents);
+  return duration.value.quantity * props.rates.daily_cents;
 });
 
 async function submit() {

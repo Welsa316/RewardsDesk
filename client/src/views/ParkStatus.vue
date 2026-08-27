@@ -21,7 +21,7 @@ const showCanceled = ref(route.query.canceled === '1');
 const extendOpen = ref(false);
 const extending = ref(false);
 const extendError = ref('');
-const extendDuration = ref({ rate_type: 'hourly', quantity: 1 });
+const extendDuration = ref({ rate_type: 'daily', quantity: 1 });
 
 let clockTimer = null;
 let pollTimer = null;

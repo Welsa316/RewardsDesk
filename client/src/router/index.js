@@ -63,6 +63,12 @@ const routes = [
         meta: { requiresAdmin: true },
       },
       {
+        path: 'parking-promos',
+        name: 'parking-promos',
+        component: () => import('../views/ParkingPromos.vue'),
+        meta: { requiresAdmin: true },
+      },
+      {
         path: 'promos',
         name: 'promos',
         component: () => import('../views/Promos.vue'),

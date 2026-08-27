@@ -139,11 +139,13 @@ async function applyRange() {
             <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Avg stay</dt>
             <dd class="font-serif text-xl text-ink">{{ revenue.range.avg_stay_hours }}h</dd>
           </div>
-          <div>
-            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Hourly vs daily</dt>
-            <dd class="text-ink">
-              {{ formatMoney(revenue.range.hourly_cents) }} / {{ formatMoney(revenue.range.daily_cents) }}
-            </dd>
+          <!-- Hourly is no longer sold, so this only appears while a range
+               still contains sessions bought under it. -->
+          <div v-if="revenue.range.hourly_cents > 0">
+            <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">
+              Legacy hourly
+            </dt>
+            <dd class="text-ink">{{ formatMoney(revenue.range.hourly_cents) }}</dd>
           </div>
           <div>
             <dt class="text-[11px] font-medium uppercase tracking-wide text-slate-warm">Refunded</dt>
