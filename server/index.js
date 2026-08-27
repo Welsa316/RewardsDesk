@@ -20,6 +20,7 @@ import staffRoutes from './routes/staff.js';
 import settingsRoutes from './routes/settings.js';
 import promoRoutes from './routes/promos.js';
 import parkingPromoRoutes from './routes/parkingPromos.js';
+import smsRoutes from './routes/sms.js';
 import { uploadDir, UPLOAD_ROUTE } from './lib/uploads.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -88,6 +89,7 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api', promoRoutes); // /api/public/promos, /api/promos (admin)
 app.use('/api/parking-promos', parkingPromoRoutes); // admin: special daily rates
+app.use('/api', smsRoutes); // /api/sms/twilio — inbound SMS webhook
 
 // Uploaded promo images. Content-hashed names are never reused, so they can be
 // cached hard; a missing volume simply yields 404s rather than breaking boot.

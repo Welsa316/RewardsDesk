@@ -65,6 +65,17 @@ export const parkingCheckoutPerHour = rateLimit({
   message: { error: "That's several payment attempts for this vehicle — please see the front desk." },
 });
 
+// Inbound SMS. Every request arrives from Twilio's own IPs, so an IP key would
+// bucket the whole world together — key on the sending phone number instead.
+export const smsInboundPerMinute = rateLimit({
+  ...common,
+  windowMs: 60 * 1000,
+  max: 6,
+  keyGenerator: (req) => `sms:${String(req.body?.From || req.ip || '').slice(-16)}`,
+  // A rate-limited sender gets silence rather than an error message.
+  handler: (req, res) => res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<Response/>'),
+});
+
 // Guest status lookups are cheap reads; this just slows token scanning.
 // Status reads are per-token, not per-IP: a whole lot full of guests checking
 // their time shares one wifi IP, and being locked out of the page that proves
