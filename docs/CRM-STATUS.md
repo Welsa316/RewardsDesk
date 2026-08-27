@@ -36,7 +36,7 @@ MODULE 1 — REWARDS (original proposal) — DELIVERED
 [x] Admin: settings (hotel name, property code, goals, sources, time zone)
 [x] Roles: admin (owner) vs staff (front desk); no public signup
 [x] PWA — installable, offline-aware, branded icons
-[x] Best Western logo applied app-wide (in-app + favicon + install icons)
+[x] Chain logo removed app-wide; neutral text wordmark + neutral install icons
 
 NOTE ON SCOPE (unchanged from proposal): the app does NOT enroll anyone in
 Best Western Rewards and does not connect to any BW or Canary system — no

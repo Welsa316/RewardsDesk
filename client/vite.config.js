@@ -9,18 +9,21 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png'],
       manifest: {
-        name: 'RewardsDesk',
-        short_name: 'RewardsDesk',
-        description: 'Front-desk rewards intake & enrollment tracking.',
+        // Guests reach /enroll and / under this manifest, so it must not carry a
+        // chain name or a chain logo. The parking pages swap in their own at
+        // runtime (utils/whitelabel).
+        name: 'MSY Parking & Rewards',
+        short_name: 'Parking',
+        description: 'Pay for parking or join the rewards program.',
         theme_color: '#0F1B2D',
         background_color: '#FBF8F3',
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/parking-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icons/parking-512.png', sizes: '512x512', type: 'image/png' },
           {
-            src: 'icons/icon-512-maskable.png',
+            src: 'icons/parking-512-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

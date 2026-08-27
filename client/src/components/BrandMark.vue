@@ -1,18 +1,26 @@
 <script setup>
-import bwLogo from '../assets/bw-logo.png';
-
+// Plain text wordmark. This deliberately carries no hotel logo or brand imagery
+// — the property's marks are not ours to display on this site, and nothing
+// guest-facing should identify the hotel chain.
 defineProps({
   size: { type: String, default: 'md' }, // 'sm' | 'md' | 'lg'
+  // What the mark should read. Callers on public pages pass the configured
+  // parking brand so the guest never sees an internal product name.
+  label: { type: String, default: 'RewardsDesk' },
 });
 
-const HEIGHTS = { sm: 'h-8', md: 'h-11', lg: 'h-14' };
+const SIZES = {
+  sm: 'text-lg',
+  md: 'text-2xl',
+  lg: 'text-3xl',
+};
 </script>
 
 <template>
-  <img
-    :src="bwLogo"
-    alt="Best Western Hotels & Resorts"
-    class="inline-block w-auto"
-    :class="HEIGHTS[size] || HEIGHTS.md"
-  />
+  <span
+    class="inline-block font-serif font-semibold tracking-tight text-ink"
+    :class="SIZES[size] || SIZES.md"
+  >
+    {{ label }}
+  </span>
 </template>

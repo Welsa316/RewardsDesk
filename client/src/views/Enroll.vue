@@ -2,7 +2,6 @@
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { intake } from '../api';
-import BrandMark from '../components/BrandMark.vue';
 import AddressFields from '../components/AddressFields.vue';
 
 const route = useRoute();
@@ -11,7 +10,6 @@ const route = useRoute();
 // real name replaces this as soon as the public config lands; if that request
 // fails the sentence must still be true, so the fallback is generic rather
 // than a brand that isn't the one asking.
-const hotelName = ref('this hotel');
 const status = ref('form'); // 'form' | 'submitting' | 'success'
 const formError = ref('');
 const fieldErrors = reactive({});
@@ -60,12 +58,6 @@ onMounted(async () => {
   if (typeof q.src === 'string' && q.src.trim()) form.source = q.src.trim();
   form.prefilled = prefilled;
 
-  try {
-    const { data } = await intake.publicConfig();
-    if (data?.hotel_name) hotelName.value = data.hotel_name;
-  } catch {
-    // keep the default branding
-  }
 });
 
 // Deliberately NOT gated on consent: a disabled button gives the guest no
@@ -121,18 +113,17 @@ async function submit() {
         </div>
         <h1 class="font-serif text-2xl text-ink">You're all set</h1>
         <p class="mt-3 text-slate-warm">
-          Thanks! Stop by the front desk at check-in and we'll finish setting up your Best Western
-          Rewards account so you start earning points.
+          Thanks! Stop by the front desk at check-in and we'll finish setting up your rewards
+          account so you start earning points.
         </p>
       </div>
 
       <!-- Form -->
       <div v-else>
         <header class="mb-6 text-center">
-          <BrandMark size="md" class="mb-3" />
-          <h1 class="font-serif text-2xl text-ink">Join Best Western Rewards</h1>
+          <h1 class="font-serif text-2xl text-ink">Rewards Enrollment</h1>
           <p class="mt-1 text-sm text-slate-warm">
-            {{ hotelName }} — add your details and we'll finish enrollment at the front desk.
+            Add your details and we'll finish enrollment at the front desk.
           </p>
         </header>
 
@@ -246,8 +237,9 @@ async function submit() {
                 @change="clearError('consent')"
               />
               <span class="text-sm leading-relaxed text-slate-warm">
-                I'd like to join Best Western Rewards. I authorize {{ hotelName }} to use these
-                details to enroll me at the front desk.
+                By submitting this form I consent to be enrolled in Best Western Rewards, and
+                authorize the hotel to use these details to complete my enrollment at the front
+                desk.
               </span>
             </label>
             <p v-if="fieldErrors.consent" id="consent-error" class="field-error">{{ fieldErrors.consent }}</p>

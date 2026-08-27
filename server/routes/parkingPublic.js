@@ -22,7 +22,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 async function parkingSettings() {
   const { rows } = await query(
-    `SELECT COALESCE(parking_brand_name, hotel_name) AS brand_name,
+    // Falls back to a neutral label, never the hotel name — that names the
+    // chain, and the parking pages are the one surface a guest must not be able
+    // to connect back to it. An unset brand shows something plain rather than
+    // something wrong.
+    `SELECT COALESCE(NULLIF(parking_brand_name, ''), 'Guest Parking') AS brand_name,
             parking_hourly_cents, parking_daily_cents, parking_lots,
             parking_expiring_soon_minutes
        FROM settings WHERE id = 1`,

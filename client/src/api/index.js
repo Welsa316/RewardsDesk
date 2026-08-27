@@ -46,7 +46,6 @@ export const auth = {
 
 export const intake = {
   submit: (payload) => http.post('/intake', payload),
-  publicConfig: () => http.get('/public/config'),
 };
 
 export const enrollments = {

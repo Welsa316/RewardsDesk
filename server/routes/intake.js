@@ -22,7 +22,7 @@ router.post('/intake', intakePerMinute, intakePerHour, validateIntake, async (re
     // Minimal response — never echo stored PII.
     res.status(201).json({
       ok: true,
-      message: 'Thanks! Stop by the front desk at check-in to finish your Best Western Rewards account.',
+      message: 'Thanks! Stop by the front desk at check-in to finish setting up your rewards account.',
     });
   } catch (err) {
     next(err);
@@ -30,13 +30,4 @@ router.post('/intake', intakePerMinute, intakePerHour, validateIntake, async (re
 });
 
 // Public branding only — nothing sensitive.
-router.get('/public/config', async (req, res, next) => {
-  try {
-    const { rows } = await query('SELECT hotel_name FROM settings WHERE id = 1');
-    res.json({ hotel_name: rows[0]?.hotel_name ?? 'RewardsDesk' });
-  } catch (err) {
-    next(err);
-  }
-});
-
 export default router;
