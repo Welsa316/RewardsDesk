@@ -6,8 +6,6 @@ const routes = [
   { path: '/', name: 'home', component: () => import('../views/Home.vue'), meta: { public: true } },
   { path: '/enroll', name: 'enroll', component: () => import('../views/Enroll.vue'), meta: { public: true } },
   { path: '/sms', name: 'sms-policy', component: () => import('../views/SmsPolicy.vue'), meta: { public: true } },
-  { path: '/privacy', name: 'privacy', component: () => import('../views/Privacy.vue'), meta: { public: true } },
-  { path: '/terms', name: 'terms', component: () => import('../views/Terms.vue'), meta: { public: true } },
   {
     path: '/admin/login',
     name: 'login',
@@ -73,6 +71,17 @@ const routes = [
     ],
   },
 
+  // Staff had these bookmarked when they lived at the root. Without these a
+  // saved link to /queue now falls through the catch-all to the public home
+  // page, which looks like the app has lost their data.
+  ...['queue', 'enrollments', 'leaderboard', 'parking', 'staff', 'settings', 'qr'].map((p) => ({
+    path: `/${p}`,
+    redirect: { path: `/admin/${p}` },
+  })),
+  { path: '/enrollments/:id', redirect: (to) => `/admin/enrollments/${to.params.id}` },
+  { path: '/parking/sessions', redirect: { path: '/admin/parking/sessions' } },
+  { path: '/parking/settings', redirect: { path: '/admin/parking/settings' } },
+
   { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
 ];
 
@@ -113,8 +122,6 @@ const PUBLIC_TITLES = {
   home: 'Parking & Rewards',
   enroll: 'Rewards Enrollment',
   'sms-policy': 'Text service — Pay to Park',
-  privacy: 'Privacy Policy',
-  terms: 'Terms of Service',
 };
 
 router.afterEach((to) => {

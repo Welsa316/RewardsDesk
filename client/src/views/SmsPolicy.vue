@@ -3,7 +3,6 @@
 // reviewers need to reach this without logging in, and need to see the exact
 // call-to-action a guest sees in the lot alongside the consent language.
 import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
 import PublicFooter from '../components/PublicFooter.vue';
 
 const CONTACT_EMAIL = 'aks1321@gmail.com';
@@ -60,10 +59,8 @@ const SIGN_IMAGE = '/sign.png';
 
         <p class="mt-6 border-t border-sand pt-6 text-sm text-slate-warm">
           We never send marketing messages through this number, and we do not sell or share your
-          phone number. See our
-          <RouterLink to="/privacy" class="font-medium text-terracotta-700 hover:underline">Privacy Policy</RouterLink>
-          and
-          <RouterLink to="/terms" class="font-medium text-terracotta-700 hover:underline">Terms of Service</RouterLink>.
+          phone number. It is used only to send you the payment link you asked for, and to look up
+          an existing parking session so we can send you back to it.
         </p>
       </div>
 
