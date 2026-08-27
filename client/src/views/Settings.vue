@@ -18,6 +18,14 @@ const form = reactive({
 const newSource = ref('');
 const loading = ref(true);
 const loadError = ref('');
+const integrations = ref(null);
+
+const integrationRows = [
+  { key: 'stripe', label: 'Stripe payments', hint: 'STRIPE_SECRET_KEY' },
+  { key: 'sms', label: 'Inbound SMS', hint: 'TWILIO_AUTH_TOKEN' },
+  { key: 'email', label: 'Email notifications', hint: 'RESEND_API_KEY + EMAIL_FROM' },
+  { key: 'uploads', label: 'Promo image storage', hint: 'UPLOAD_DIR (needs a mounted volume)' },
+];
 const saving = ref(false);
 
 const retentionDays = ref(365);
@@ -44,6 +52,7 @@ async function init() {
   loadError.value = '';
   try {
     await store.load();
+    integrations.value = store.data?.integrations || null;
     if (store.data) {
       Object.assign(form, {
         hotel_name: store.data.hotel_name,
@@ -115,6 +124,29 @@ async function purgeOld() {
 <template>
   <div class="mx-auto max-w-2xl">
     <h1 class="font-serif text-2xl text-ink">Settings</h1>
+
+    <!-- Whether each integration's environment variables actually landed on
+         the host. Booleans only — no values are ever sent to the browser. -->
+    <section v-if="integrations" class="card mt-5 p-5">
+      <h2 class="font-serif text-lg text-ink">Integrations</h2>
+      <p class="mb-3 text-sm text-slate-warm">
+        Whether each service is configured on the server right now.
+      </p>
+      <ul class="space-y-2 text-sm">
+        <li v-for="row in integrationRows" :key="row.key" class="flex items-center justify-between gap-3">
+          <span class="min-w-0">
+            <span class="font-medium text-ink">{{ row.label }}</span>
+            <span class="block text-xs text-slate-warm">{{ row.hint }}</span>
+          </span>
+          <span
+            class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium"
+            :class="integrations[row.key] ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900'"
+          >
+            {{ integrations[row.key] ? 'Configured' : 'Not set' }}
+          </span>
+        </li>
+      </ul>
+    </section>
     <p class="text-sm text-slate-warm">Hotel details, enrollment goals, and intake sources.</p>
 
     <div v-if="loading" class="mt-6 h-96 animate-pulse rounded-2xl border border-sand bg-white/60" />

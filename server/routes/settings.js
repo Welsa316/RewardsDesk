@@ -4,7 +4,10 @@ import { invalidateSettings } from '../lib/settings.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr } from '../lib/validation.js';
-import { publicBaseUrl } from '../lib/stripe.js';
+import { publicBaseUrl, stripeEnabled } from '../lib/stripe.js';
+import { emailEnabled } from '../lib/email.js';
+import { twilioEnabled } from '../lib/twilio.js';
+import { storageAvailable } from '../lib/uploads.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -29,7 +32,19 @@ router.get('/', async (req, res, next) => {
     // The canonical origin, so printed QR codes carry the real domain rather
     // than whatever host the admin happened to generate them from. A sign
     // printed from localhost or a staging URL is permanently dead.
-    res.json({ ...rows[0], public_base_url: publicBaseUrl() });
+    // Booleans only — never the values. Lets the owner confirm a variable
+    // actually landed on the host without reading it back out of the app,
+    // which is otherwise guesswork until something fails in front of a guest.
+    res.json({
+      ...rows[0],
+      public_base_url: publicBaseUrl(),
+      integrations: {
+        stripe: stripeEnabled(),
+        email: emailEnabled(),
+        sms: twilioEnabled(),
+        uploads: storageAvailable(),
+      },
+    });
   } catch (err) {
     next(err);
   }
