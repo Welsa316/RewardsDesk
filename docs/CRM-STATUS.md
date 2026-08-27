@@ -1,7 +1,8 @@
 PROJECT: RewardsDesk — Hotel Guest Systems
 CLIENT: Best Western Plus New Orleans Airport Hotel (Property 19119)
-STATUS: Build complete — pending Stripe test key + production deploy
-LAST UPDATED: 2026-08-21
+STATUS: LIVE at msybestparking.com — pending Twilio toll-free verification
+           and the Stripe test-to-live switch
+LAST UPDATED: 2026-08-27
 REPO: github.com/Welsa316/RewardsDesk (private/public — owner-transferable)
 STACK: Vue 3 + Vite + Tailwind + Pinia | Express + PostgreSQL (raw SQL) | Stripe | Railway
 ------------------------------------------------------------
@@ -128,6 +129,89 @@ REMAINING BEFORE GO-LIVE
 [ ] Print QR codes (rewards sources + parking lots) after domain is final
 [ ] Create real staff accounts; set property + per-employee goals
 [ ] Ownership transfer: hosting, database, repo, Stripe, domain, admin credentials
+
+
+============================================================
+UPDATE — 2026-08-27  (since the last review)
+25 commits. Deployed and serving at msybestparking.com.
+============================================================
+
+NOW LIVE / NEW FOR GUESTS
+[x] Custom domain live — msybestparking.com (replaces the temporary host)
+[x] Public home page at the root — two paths, Pay for Parking and Rewards
+    Enrollment, plus tappable phone/email and the franchise disclaimer.
+    Previously the bare domain opened the staff login to the public.
+[x] TEXT-TO-PARK — guest texts PARK to (844) 314-PARK / 314-7275 and gets a
+    payment link back. If that phone already has a car on the lot, they get
+    their own status link instead, which solves guests losing it.
+[x] SMS opt-in policy page (/sms) + the lot sign hosted publicly — the two
+    pieces of evidence Twilio requires for toll-free verification.
+[x] Chain logo removed everywhere and the chain name taken off guest-facing
+    pages. The name remains only in the consent sentence, where it is needed
+    for the guest to know what they are joining. Franchise disclaimer added
+    to every public page.
+[x] Promotional image ads — admin uploads an image with a start and end date;
+    it appears automatically on the home page and the parking payment page
+    for that window only.
+
+CHANGED — OPERATIONALLY SIGNIFICANT
+[!] HOURLY PARKING REMOVED. Parking is sold by the day only. Existing hourly
+    sessions still display correctly; nothing new can be bought hourly.
+[!] Scheduled rate promos — a special daily rate for a date range, with the
+    regular rate shown struck through. Overlapping promos use the lowest.
+[!] Staff role scoped. Staff run the desk: rewards queue and notes, walk-ups,
+    parked cars, comp and paid-at-desk sessions, check-out, extensions,
+    session notes, and viewing users. Refunds, both CSV exports, settings,
+    promos, staff management, deletions and the qualification field are
+    owner-only, enforced on the server rather than by hiding buttons.
+[!] Admin login moved to /admin/login; the whole staff app now lives under
+    /admin. Old bookmarks redirect automatically.
+[!] Licence plate state added — dropdown on every plate field, defaults to LA,
+    shown wherever plates are listed. Lookups match plate + state.
+
+EMAIL (new capability — previously excluded)
+[x] Resend integration with three notifications: parking receipt to the
+    driver, rewards enrolment confirmation to the guest, and an alert to the
+    owner on every new enrolment. A failed send can never fail a payment or
+    an enrolment. Awaiting domain verification in Resend.
+
+PRE-LAUNCH AUDIT — COMPLETED
+Full independent audit across security, payments, data integrity, frontend
+correctness, accessibility, performance and copy. Roughly 75 verified issues;
+every ship-blocker and high-priority item fixed and individually re-tested.
+The ones that mattered most:
+[x] A mistyped partial refund issued a FULL refund. Reproduced against the
+    old code, then fixed on both the server and the form.
+[x] Two staff refunding the same payment at once could both succeed.
+[x] On a shared front-desk tablet, a signed-out user could be signed back in
+    as the PREVIOUS user with their permissions.
+[x] Guest data was cached on the device indefinitely and survived sign-out.
+[x] Enrolments after ~7pm were being reported on the wrong day — meaning the
+    Best Western credit export, the one report the property is paid on,
+    contained the wrong rows.
+[x] Every redeploy silently reset the owner's password and reactivated any
+    deactivated admin.
+[x] Both CSV exports ignored the filters on screen and exported everything.
+[x] Rate limits counted the whole hotel as one guest, so the 21st car of the
+    hour would have been refused having never tried.
+[x] Guest page load cut from 196 KB to 71 KB.
+
+OPS
+[x] Settings now shows which integrations are actually configured on the
+    server (Stripe, SMS, email, image storage) — no more guessing whether a
+    variable landed.
+[x] The QR page refuses to generate codes against a temporary hosting
+    address, so no one prints a stack of dead or self-identifying signs.
+
+REMAINING BEFORE FULLY OPEN
+[ ] Twilio toll-free verification approval  <-- IN PROGRESS, blocks texting
+[ ] Verify the sending domain in Resend (turns the three emails on)
+[ ] Stripe: swap test key for live, create the live webhook, one real card test
+[ ] Point www.msybestparking.com at the app (currently only the bare domain)
+[ ] Set the Stripe public business name if parking should look independent
+    of the hotel on receipts and card statements
+[ ] Create real staff accounts and set goals
+[ ] Ownership transfer: hosting, database, repo, Stripe, domain, credentials
 
 ============================================================
 HANDOFF ASSETS INCLUDED
