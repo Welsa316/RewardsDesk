@@ -98,7 +98,7 @@ function onWalkUpCreated(data) {
           </span>
         </p>
       </div>
-      <button v-if="auth.isAdmin" class="btn btn-primary !py-2.5" aria-label="Add walk-up enrollment" @click="showWalkUp = true">
+      <button class="btn btn-primary !py-2.5" aria-label="Add walk-up enrollment" @click="showWalkUp = true">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" d="M12 5v14M5 12h14" />
         </svg>

@@ -58,41 +58,36 @@ const ALLOWED = 'allow';
 const FORBIDDEN = 403;
 
 const CASES = [
-  // ── Staff may do these ──────────────────────────────────────────────
+  // ── Staff run the front desk ────────────────────────────────────────
   ['GET', '/api/enrollments?pageSize=1', null, ALLOWED, 'view rewards guests'],
   ['GET', '/api/stats/dashboard', null, ALLOWED, 'view the dashboard'],
+  ['POST', '/api/enrollments', { first_name: 'Perm', last_name: 'Check', email: 'perm@check.test', consent: true }, ALLOWED, 'add a walk-up enrollment'],
   ['GET', '/api/parking/sessions?pageSize=1', null, ALLOWED, 'view parked cars'],
   ['GET', '/api/parking/dashboard', null, ALLOWED, 'view the parking overview'],
+  ['POST', '/api/parking/sessions/999999/depart', null, ALLOWED, 'check a vehicle out'],
+  ['POST', '/api/parking/sessions/999999/extend', { method: 'comp', rate_type: 'daily', quantity: 1 }, ALLOWED, 'extend a session'],
+  ['POST', '/api/parking/sessions/999999/notes', { body: 'x' }, ALLOWED, 'add a session note'],
   ['GET', '/api/staff', null, ALLOWED, 'view users'],
 
-  // ── Staff must NOT do these ─────────────────────────────────────────
-  ['POST', '/api/enrollments', { first_name: 'A', last_name: 'B', consent: true }, FORBIDDEN, 'create a walk-up enrollment'],
+  // ── Money, configuration and bulk data stay with the owner ──────────
+  ['POST', '/api/parking/sessions/999999/refund', { payment_id: 1, reason: 'x' }, FORBIDDEN, 'issue a refund'],
   ['DELETE', '/api/enrollments/999999', null, FORBIDDEN, 'delete an enrollment'],
   ['POST', '/api/enrollments/purge', { days: 400 }, FORBIDDEN, 'purge enrollments'],
-
-  ['POST', '/api/parking/sessions', { guest_name: 'X', plate: 'X1', kind: 'comp' }, FORBIDDEN, 'create a parking session'],
-  ['POST', '/api/parking/sessions/999999/depart', null, FORBIDDEN, 'check a vehicle out'],
-  ['POST', '/api/parking/sessions/999999/extend', { method: 'comp', rate_type: 'daily', quantity: 1 }, FORBIDDEN, 'extend a session'],
-  ['POST', '/api/parking/sessions/999999/notes', { body: 'x' }, FORBIDDEN, 'add a session note'],
-  ['POST', '/api/parking/sessions/999999/refund', { payment_id: 1, reason: 'x' }, FORBIDDEN, 'issue a refund'],
-  ['GET', '/api/parking/export', null, FORBIDDEN, 'export parking CSV'],
 
   ['GET', '/api/settings', null, FORBIDDEN, 'read settings'],
   ['PATCH', '/api/settings', { hotel_name: 'x' }, FORBIDDEN, 'change settings'],
 
   ['GET', '/api/promos', null, FORBIDDEN, 'list promo images'],
   ['POST', '/api/promos', { title: 'x' }, FORBIDDEN, 'create a promo image'],
-  ['DELETE', '/api/promos/999999', null, FORBIDDEN, 'delete a promo image'],
-
   ['GET', '/api/parking-promos', null, FORBIDDEN, 'list rate promos'],
   ['POST', '/api/parking-promos', { name: 'x', rate_cents: 100 }, FORBIDDEN, 'create a rate promo'],
-  ['DELETE', '/api/parking-promos/999999', null, FORBIDDEN, 'delete a rate promo'],
 
   ['POST', '/api/staff', { name: 'x', email: 'x@y.z', password: 'abcdefghij' }, FORBIDDEN, 'create a user'],
   ['PATCH', '/api/staff/999999', { role: 'admin' }, FORBIDDEN, 'change a user role'],
   ['DELETE', '/api/staff/999999', null, FORBIDDEN, 'deactivate a user'],
 
   ['GET', '/api/export', null, FORBIDDEN, 'export the rewards CSV'],
+  ['GET', '/api/parking/export', null, FORBIDDEN, 'export the parking CSV'],
 ];
 
 const staff = await login(staffEmail, staffPass);

@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin, readOnlyForStaff } from '../middleware/requireAdmin.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
 import { getStripe, publicBaseUrl } from '../lib/stripe.js';
 import { activeDailyRate } from '../lib/parkingRates.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
@@ -16,9 +16,10 @@ import {
 } from '../lib/parking.js';
 
 const router = Router();
-// Staff may view parked cars. Creating sessions, checking vehicles out,
-// extending, adding notes and refunding are all admin-only.
-router.use(requireAuth, readOnlyForStaff);
+// Staff run the lot day to day: view it, create comp and paid-at-desk
+// sessions, check vehicles out, extend, and leave notes. The two routes that
+// move money or export bulk data carry their own requireAdmin below.
+router.use(requireAuth);
 
 const DERIVED_STATUSES = [
   'pending_payment',

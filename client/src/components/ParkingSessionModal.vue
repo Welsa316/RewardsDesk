@@ -258,7 +258,7 @@ function refundableCents(payment) {
       </div>
 
       <!-- Actions -->
-      <div v-if="auth.isAdmin && (canExtend || canDepart)" class="flex gap-2">
+      <div v-if="canExtend || canDepart" class="flex gap-2">
         <button v-if="canExtend" class="btn btn-primary flex-1 !py-2" :disabled="busy" @click="extendOpen = !extendOpen">
           Extend
         </button>
