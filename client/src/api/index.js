@@ -75,6 +75,20 @@ export const settings = {
   update: (payload) => http.patch('/settings', payload),
 };
 
+export const promosPublic = {
+  active: () => http.get('/public/promos'),
+};
+
+export const promos = {
+  list: () => http.get('/promos'),
+  // Raw body rather than multipart: the server reads the Content-Type to pick
+  // the extension, so no parser dependency is needed on either side.
+  uploadImage: (file) => http.post('/promos/image', file, { headers: { 'Content-Type': file.type } }),
+  create: (payload) => http.post('/promos', payload),
+  update: (id, payload) => http.patch(`/promos/${id}`, payload),
+  remove: (id) => http.delete(`/promos/${id}`),
+};
+
 export const parkingPublic = {
   config: () => http.get('/public/parking-config'),
   checkout: (payload) => http.post('/parking/checkout', payload),

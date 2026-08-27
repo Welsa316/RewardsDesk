@@ -6,6 +6,7 @@ import { ref, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import { parkingPublic } from '../api';
 import PublicFooter from '../components/PublicFooter.vue';
+import PromoStrip from '../components/PromoStrip.vue';
 
 const CONTACT_EMAIL = 'aks1321@gmail.com';
 const CONTACT_PHONE_DISPLAY = '(504) 360-2990';
@@ -35,7 +36,7 @@ onMounted(async () => {
     </header>
 
     <main class="mx-auto w-full max-w-3xl flex-1 px-5 py-8">
-      <!-- Promo images render here — see PromoStrip (section 5) -->
+      <PromoStrip />
 
       <div class="grid gap-4 sm:grid-cols-2">
         <RouterLink

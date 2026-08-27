@@ -26,3 +26,4 @@ yarn-error.log*
 
 # PWA dev output
 client/dev-dist/
+uploads/

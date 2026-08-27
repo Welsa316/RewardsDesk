@@ -18,6 +18,8 @@ import statsRoutes from './routes/stats.js';
 import exportRoutes from './routes/export.js';
 import staffRoutes from './routes/staff.js';
 import settingsRoutes from './routes/settings.js';
+import promoRoutes from './routes/promos.js';
+import { uploadDir, UPLOAD_ROUTE } from './lib/uploads.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -75,7 +77,7 @@ if (!isProd) {
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api', intakeRoutes); // /api/intake, /api/public/config
+app.use('/api', intakeRoutes); // /api/intake
 app.use('/api', parkingPublicRoutes); // /api/parking/checkout, /api/parking/session/:token, /api/public/parking-config
 app.use('/api/parking', parkingRoutes); // staff/admin: sessions, dashboard
 app.use('/api/enrollments', enrollmentRoutes);
@@ -83,6 +85,20 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api', promoRoutes); // /api/public/promos, /api/promos (admin)
+
+// Uploaded promo images. Content-hashed names are never reused, so they can be
+// cached hard; a missing volume simply yields 404s rather than breaking boot.
+app.use(
+  UPLOAD_ROUTE,
+  express.static(uploadDir, {
+    maxAge: '365d',
+    immutable: true,
+    fallthrough: true,
+    index: false,
+    dotfiles: 'deny',
+  }),
+);
 
 // Any unmatched /api/* route is a JSON 404, not the SPA fallback.
 app.use('/api', notFound);

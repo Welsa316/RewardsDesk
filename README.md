@@ -192,6 +192,7 @@ package.json      root scripts (install / dev / migrate / seed / build / start)
 | `STRIPE_SECRET_KEY` | parking      | Stripe secret key (`sk_test_…` / `sk_live_…`). App boots without it; parking pay endpoints 503. |
 | `STRIPE_WEBHOOK_SECRET` | parking  | Signing secret for `/api/parking/webhook` (CLI and dashboard secrets differ). |
 | `PUBLIC_BASE_URL` | parking (prod) | Absolute origin for Stripe success/cancel URLs.               |
+| `UPLOAD_DIR`     | promos (prod)   | Directory for uploaded promo images. **Must be a mounted volume in production** — the container filesystem is wiped on each deploy. Defaults to `/data/uploads` (prod) / `server/uploads` (dev). |
 
 ## PWA icons
 

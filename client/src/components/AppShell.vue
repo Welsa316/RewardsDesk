@@ -44,12 +44,14 @@ const navItems = computed(() => {
       icon: 'sliders',
       admin: true,
     },
+    { name: 'Promo images', routeName: 'promos', to: { name: 'promos' }, icon: 'image', admin: true },
     { name: 'QR & links', routeName: 'qr', to: { name: 'qr' }, icon: 'qr', admin: true },
   ];
   return all.filter((i) => !i.admin || auth.isAdmin);
 });
 
 const TITLES = {
+  promos: 'Promo images',
   dashboard: 'Dashboard',
   queue: 'Queue',
   enrollments: 'Enrollments',

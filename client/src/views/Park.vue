@@ -5,6 +5,7 @@ import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { parkingPublic } from '../api';
 import DurationPicker from '../components/DurationPicker.vue';
+import PromoStrip from '../components/PromoStrip.vue';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
 const route = useRoute();
@@ -112,6 +113,8 @@ async function submit() {
         <h1 class="font-serif text-2xl text-ink">{{ brand }}</h1>
         <p class="mt-1 text-sm text-slate-warm">Pay for parking in under a minute.</p>
       </header>
+
+      <PromoStrip />
 
       <p
         v-if="showCanceled"

@@ -63,6 +63,12 @@ const routes = [
         meta: { requiresAdmin: true },
       },
       {
+        path: 'promos',
+        name: 'promos',
+        component: () => import('../views/Promos.vue'),
+        meta: { requiresAdmin: true },
+      },
+      {
         path: 'qr',
         name: 'qr',
         component: () => import('../views/QrCodes.vue'),
