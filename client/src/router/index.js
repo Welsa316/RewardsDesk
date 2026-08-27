@@ -3,8 +3,19 @@ import { useAuthStore } from '../stores/auth';
 
 const routes = [
   // ── Public (no nav chrome) ──
+  { path: '/', name: 'home', component: () => import('../views/Home.vue'), meta: { public: true } },
   { path: '/enroll', name: 'enroll', component: () => import('../views/Enroll.vue'), meta: { public: true } },
-  { path: '/login', name: 'login', component: () => import('../views/Login.vue'), meta: { public: true } },
+  { path: '/sms', name: 'sms-policy', component: () => import('../views/SmsPolicy.vue'), meta: { public: true } },
+  { path: '/privacy', name: 'privacy', component: () => import('../views/Privacy.vue'), meta: { public: true } },
+  { path: '/terms', name: 'terms', component: () => import('../views/Terms.vue'), meta: { public: true } },
+  {
+    path: '/admin/login',
+    name: 'login',
+    component: () => import('../views/Login.vue'),
+    meta: { public: true },
+  },
+  // Anyone with the old bookmark still lands in the right place.
+  { path: '/login', redirect: { name: 'login' } },
   // Parking is white-label: meta.public also keeps the 401 interceptor away.
   { path: '/park', name: 'park', component: () => import('../views/Park.vue'), meta: { public: true } },
   {
@@ -14,9 +25,9 @@ const routes = [
     meta: { public: true },
   },
 
-  // ── Protected (shared app shell) ──
+  // ── Protected (shared app shell), all under /admin ──
   {
-    path: '/',
+    path: '/admin',
     component: () => import('../components/AppShell.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -62,7 +73,7 @@ const routes = [
     ],
   },
 
-  { path: '/:pathMatch(.*)*', redirect: '/' },
+  { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
 ];
 
 const router = createRouter({
@@ -96,9 +107,19 @@ router.beforeEach(async (to) => {
 // swaps it for staff routes. The router covers client-side navigation (and
 // `vite dev`, which serves index.html untouched). Parking routes are left
 // alone — Park/ParkStatus own their chrome via utils/whitelabel.
+// Public pages set their own titles (and the parking pages own their chrome
+// via utils/whitelabel); only the staff app announces itself by name.
+const PUBLIC_TITLES = {
+  home: 'Parking & Rewards',
+  enroll: 'Rewards Enrollment',
+  'sms-policy': 'Text service — Pay to Park',
+  privacy: 'Privacy Policy',
+  terms: 'Terms of Service',
+};
+
 router.afterEach((to) => {
   if (to.path === '/park' || to.path.startsWith('/park/')) return;
-  document.title = 'RewardsDesk';
+  document.title = PUBLIC_TITLES[to.name] || 'RewardsDesk';
 });
 
 export default router;
