@@ -28,7 +28,12 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallbackDenylist: [/^\/api/],
+        // Anything with a file extension is a real file, not an SPA route.
+        // Without this the worker answers a *typed* /sign.png with index.html,
+        // so the direct image link submitted as Twilio opt-in proof would show
+        // the app shell to anyone who has the worker installed. No client route
+        // contains a dot, so this can't shadow one.
+        navigateFallbackDenylist: [/^\/api/, /\.[^/]+$/],
         // Precache the guest shell only. A guest paying for parking should not
         // have to download the staff app (queue, leaderboard, QR generator and
         // its qrcode library) before their form is usable — and those chunks

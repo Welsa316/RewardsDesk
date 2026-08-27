@@ -121,6 +121,10 @@ if (isProd) {
         'content="Front-desk rewards intake &amp; enrollment tracking."',
       );
 
+    // The lot sign is submitted to carriers as opt-in proof, so both the bare
+    // path and the file name resolve to it rather than one 404ing.
+    app.get(['/sign', '/sign.png/'], (req, res) => res.redirect(308, '/sign.png'));
+
     app.get('*', (req, res) => {
       const guest = req.path === '/park' || req.path.startsWith('/park/');
       res.type('html').set('Cache-Control', 'no-cache').send(guest ? guestHtml : staffHtml);
