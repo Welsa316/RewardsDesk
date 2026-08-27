@@ -6,11 +6,15 @@
 // Both routes are safe because activation is gated on the payment row still
 // being 'pending', so it can only ever happen once.
 import { query, withTransaction } from '../db/index.js';
-import { getStripe, stripeEnabled } from './stripe.js';
+import { getStripe, stripeEnabled, publicBaseUrl } from './stripe.js';
+import { sendParkingReceipt } from './email.js';
 import { durationHours } from './parking.js';
 
 // `cs` is a Stripe Checkout Session (from a webhook event or a direct retrieve).
 export async function applyCompletedCheckout(cs) {
+  // Set inside the transaction, used after it commits to send the receipt.
+  let activated = null;
+
   // Fetch the receipt BEFORE the transaction — no network call inside it.
   let receiptUrl = null;
   const piId = typeof cs.payment_intent === 'string' ? cs.payment_intent : cs.payment_intent?.id;
@@ -23,7 +27,7 @@ export async function applyCompletedCheckout(cs) {
     }
   }
 
-  return withTransaction(async (client) => {
+  const applied = await withTransaction(async (client) => {
     const { rows } = await client.query(
       `SELECT p.id, p.session_id, p.purpose, p.status, p.amount_cents, p.rate_type, p.quantity,
               s.disposition
@@ -83,8 +87,53 @@ export async function applyCompletedCheckout(cs) {
         [hours, payment.session_id],
       );
     }
+    activated = { sessionId: payment.session_id, amountCents: payment.amount_cents };
     return true;
   });
+
+  // After the commit, so the receipt reflects the stored paid_through — and so
+  // a mail failure can never roll back a payment that has already succeeded.
+  // Not awaited: the webhook must answer Stripe promptly.
+  if (applied && activated) {
+    sendReceiptForSession(activated.sessionId, activated.amountCents);
+  }
+  return applied;
+}
+
+/**
+ * Emails the driver their receipt after a successful activation.
+ * Called outside the activation transaction and never awaited into it — the
+ * money has moved and the session is active regardless of what mail does.
+ */
+export async function sendReceiptForSession(sessionId, amountCents) {
+  try {
+    const { rows } = await query(
+      `SELECT ps.email, ps.confirmation_code, ps.plate, ps.plate_state, ps.starts_at,
+              ps.paid_through, ps.status_token,
+              COALESCE(NULLIF(s.parking_brand_name, ''), 'Guest Parking') AS brand_name,
+              s.timezone
+         FROM parking_sessions ps CROSS JOIN settings s
+        WHERE ps.id = $1 AND s.id = 1`,
+      [sessionId],
+    );
+    const r = rows[0];
+    if (!r?.email) return false; // email is optional on the parking form
+    return await sendParkingReceipt({
+      to: r.email,
+      brandName: r.brand_name,
+      confirmationCode: r.confirmation_code,
+      plate: r.plate,
+      plateState: r.plate_state,
+      amountCents,
+      startsAt: r.starts_at,
+      paidThrough: r.paid_through,
+      statusUrl: `${publicBaseUrl()}/park/s/${r.status_token}`,
+      timeZone: r.timezone,
+    });
+  } catch (err) {
+    console.error('  ✉ receipt lookup failed:', err?.message || err);
+    return false;
+  }
 }
 
 export async function cancelExpiredCheckout(cs) {
