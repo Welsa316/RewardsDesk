@@ -6,6 +6,8 @@ const routes = [
   { path: '/', name: 'home', component: () => import('../views/Home.vue'), meta: { public: true } },
   { path: '/enroll', name: 'enroll', component: () => import('../views/Enroll.vue'), meta: { public: true } },
   { path: '/sms', name: 'sms-policy', component: () => import('../views/SmsPolicy.vue'), meta: { public: true } },
+  { path: '/privacy', name: 'privacy', component: () => import('../views/Privacy.vue'), meta: { public: true } },
+  { path: '/terms', name: 'terms', component: () => import('../views/Terms.vue'), meta: { public: true } },
   {
     path: '/admin/login',
     name: 'login',
@@ -134,7 +136,9 @@ router.beforeEach(async (to) => {
 const PUBLIC_TITLES = {
   home: 'Parking & Rewards',
   enroll: 'Rewards Enrollment',
-  'sms-policy': 'Text service — Pay to Park',
+  'sms-policy': 'Text service — MSY Best Parking',
+  privacy: 'Privacy Policy — MSY Best Parking',
+  terms: 'Terms of Service — MSY Best Parking',
 };
 
 router.afterEach((to) => {

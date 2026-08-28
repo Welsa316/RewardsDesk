@@ -12,8 +12,10 @@ defineProps({
 
 <template>
   <footer class="mt-12 border-t border-sand pt-6 text-center">
-    <nav v-if="!compact" class="mb-3 text-sm">
-      <RouterLink to="/sms" class="text-slate-warm hover:text-ink hover:underline">Text service terms</RouterLink>
+    <nav v-if="!compact" class="mb-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+      <RouterLink to="/sms" class="text-slate-warm hover:text-ink hover:underline">Text service</RouterLink>
+      <RouterLink to="/terms" class="text-slate-warm hover:text-ink hover:underline">Terms of Service</RouterLink>
+      <RouterLink to="/privacy" class="text-slate-warm hover:text-ink hover:underline">Privacy Policy</RouterLink>
     </nav>
     <p class="text-xs leading-relaxed text-slate-warm">
       Each BWH Hotels branded hotel is independently owned and operated.

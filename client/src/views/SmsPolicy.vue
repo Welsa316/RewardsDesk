@@ -1,8 +1,11 @@
 <script setup>
-// Public SMS opt-in disclosure. Carriers and Twilio's toll-free verification
-// reviewers need to reach this without logging in, and need to see the exact
-// call-to-action a guest sees in the lot alongside the consent language.
+// Public SMS opt-in disclosure for Twilio toll-free verification. A reviewer
+// must reach this without logging in and read the consent language that
+// matches the submitted use case word for word — so the two required
+// sentences below are kept as unbroken plain text, with no inline links or
+// markup splitting them. Changing their wording will fail verification.
 import { ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import PublicFooter from '../components/PublicFooter.vue';
 
 const CONTACT_EMAIL = 'aks1321@gmail.com';
@@ -15,24 +18,22 @@ const SIGN_IMAGE = '/sign.png';
 <template>
   <div class="flex min-h-screen flex-col bg-warm">
     <header class="bg-ink px-5 py-8 text-center">
-      <h1 class="font-serif text-2xl text-white">Pay to Park text service</h1>
-      <p class="mt-2 text-sm text-white/70">SMS program terms and consent</p>
+      <h1 class="font-serif text-2xl text-white">MSY Best Parking</h1>
+      <p class="mt-2 text-sm text-white/70">Pay to Park text service — SMS terms and consent</p>
     </header>
 
     <main class="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
       <div class="card p-6">
         <h2 class="font-serif text-xl text-ink">How it works</h2>
         <p class="mt-2 text-base leading-relaxed text-ink">
-          Text <strong>PARK</strong> to
-          <a href="tel:+18443147275" class="font-semibold text-terracotta-700 hover:underline">(844) 314-7275</a>
-          to receive a one-time link to pay for parking.
+          Text PARK to (844) 314-7275 to receive a one-time text with a link to pay for parking.
         </p>
 
-        <h2 class="mt-6 font-serif text-xl text-ink">Consent and message terms</h2>
+        <h2 class="mt-6 font-serif text-xl text-ink">Consent</h2>
         <p class="mt-2 text-base leading-relaxed text-ink">
-          By texting PARK you consent to receive a single reply with a payment link. Message
-          frequency: one message per request. Message and data rates may apply. Reply STOP to opt
-          out, HELP for help.
+          By texting PARK, you consent to receive one automated text message per request from MSY
+          Best Parking containing a payment link. Message frequency: 1 message per request. Message
+          and data rates may apply. Reply STOP to opt out, HELP for help.
         </p>
 
         <dl class="mt-6 grid gap-3 border-t border-sand pt-6 text-sm sm:grid-cols-2">
@@ -42,7 +43,7 @@ const SIGN_IMAGE = '/sign.png';
           </div>
           <div>
             <dt class="font-medium text-slate-warm">Message frequency</dt>
-            <dd class="text-ink">One message per request</dd>
+            <dd class="text-ink">1 message per request</dd>
           </div>
           <div>
             <dt class="font-medium text-slate-warm">Opt out</dt>
@@ -59,8 +60,10 @@ const SIGN_IMAGE = '/sign.png';
 
         <p class="mt-6 border-t border-sand pt-6 text-sm text-slate-warm">
           We never send marketing messages through this number, and we do not sell or share your
-          phone number. It is used only to send you the payment link you asked for, and to look up
-          an existing parking session so we can send you back to it.
+          phone number. See our
+          <RouterLink to="/terms" class="font-medium text-terracotta-700 hover:underline">Terms of Service</RouterLink>
+          and
+          <RouterLink to="/privacy" class="font-medium text-terracotta-700 hover:underline">Privacy Policy</RouterLink>.
         </p>
       </div>
 
