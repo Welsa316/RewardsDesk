@@ -235,7 +235,7 @@ async function submit() {
                 type="checkbox"
                 :aria-invalid="fieldErrors.consent ? 'true' : undefined"
                 :aria-describedby="fieldErrors.consent ? 'consent-error' : undefined"
-                class="mt-0.5 h-5 w-5 shrink-0 rounded border-sand text-terracotta focus:ring-terracotta/40"
+                class="mt-0.5 h-5 w-5 shrink-0 rounded border-sand text-maroon focus:ring-maroon/40"
                 @change="clearError('consent')"
               />
               <span class="text-sm leading-relaxed text-slate-warm">

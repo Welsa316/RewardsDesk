@@ -49,7 +49,7 @@ const CONTACT_EMAIL = 'aks1321@gmail.com';
             Texting PARK to our number returns one automated message per request containing a
             payment link. Message frequency: 1 message per request. Message and data rates may
             apply. Reply STOP to opt out, HELP for help. See the
-            <RouterLink to="/sms" class="font-medium text-terracotta-700 hover:underline">text service page</RouterLink>
+            <RouterLink to="/sms" class="font-medium text-maroon-700 hover:underline">text service page</RouterLink>
             for the full program terms.
           </p>
         </section>
@@ -75,7 +75,7 @@ const CONTACT_EMAIL = 'aks1321@gmail.com';
           <h2 class="font-serif text-lg">Contact</h2>
           <p class="mt-1.5 text-slate-warm">
             Questions about these terms:
-            <a :href="`mailto:${CONTACT_EMAIL}`" class="font-medium text-terracotta-700 hover:underline">{{ CONTACT_EMAIL }}</a>.
+            <a :href="`mailto:${CONTACT_EMAIL}`" class="font-medium text-maroon-700 hover:underline">{{ CONTACT_EMAIL }}</a>.
             We may update these terms; the version on this page is the one in effect.
           </p>
         </section>

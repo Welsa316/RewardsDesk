@@ -108,7 +108,7 @@ onMounted(() => stats.loadDashboard());
               <span class="text-ink">{{ me.month }} / {{ me.monthly_goal }}</span>
             </div>
             <div class="h-2 w-full overflow-hidden rounded-full bg-sand">
-              <div class="h-full rounded-full bg-terracotta transition-all duration-500" :style="{ width: myGoalPct + '%' }" />
+              <div class="h-full rounded-full bg-maroon transition-all duration-500" :style="{ width: myGoalPct + '%' }" />
             </div>
             <p class="mt-1.5 text-xs text-slate-warm">
               {{ Math.max(0, me.monthly_goal - me.month) }} to go · {{ me.qualified }} qualified so far
@@ -157,7 +157,7 @@ onMounted(() => stats.loadDashboard());
               </div>
               <div class="h-2 w-full overflow-hidden rounded-full bg-sand">
                 <div
-                  class="h-full rounded-full bg-terracotta"
+                  class="h-full rounded-full bg-maroon"
                   :style="{ width: (s.count / maxSource) * 100 + '%' }"
                 />
               </div>

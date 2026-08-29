@@ -98,7 +98,7 @@ onMounted(load);
 
 <template>
   <div class="mx-auto max-w-3xl">
-    <button class="mb-4 text-sm font-medium text-terracotta-700 hover:underline" @click="router.back()">
+    <button class="mb-4 text-sm font-medium text-maroon-700 hover:underline" @click="router.back()">
       ← Back
     </button>
 
@@ -231,7 +231,7 @@ onMounted(load);
           <li v-for="h in enrollment.history" :key="h.id" class="flex items-start gap-3">
             <div
               class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-              :class="h.action === 'qualification' ? 'bg-green-600' : h.action === 'created' ? 'bg-ink' : 'bg-terracotta'"
+              :class="h.action === 'qualification' ? 'bg-green-600' : h.action === 'created' ? 'bg-ink' : 'bg-maroon'"
             />
             <div class="text-sm">
               <p class="font-medium text-ink">{{ auditSentence(h) }}</p>

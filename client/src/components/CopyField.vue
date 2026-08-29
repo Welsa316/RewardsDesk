@@ -26,7 +26,7 @@ async function copy() {
 <template>
   <button
     type="button"
-    class="group flex w-full items-center justify-between gap-3 rounded-xl border border-sand bg-warm/40 px-4 py-2.5 text-left transition hover:border-terracotta/40 hover:bg-warm disabled:cursor-not-allowed disabled:opacity-50"
+    class="group flex w-full items-center justify-between gap-3 rounded-xl border border-sand bg-warm/40 px-4 py-2.5 text-left transition hover:border-maroon/40 hover:bg-warm disabled:cursor-not-allowed disabled:opacity-50"
     :disabled="!value"
     @click="copy"
   >
@@ -34,7 +34,7 @@ async function copy() {
       <span class="block text-[11px] font-medium uppercase tracking-wide text-slate-warm">{{ label }}</span>
       <span class="block truncate text-ink">{{ value || '—' }}</span>
     </span>
-    <span class="shrink-0 text-xs font-semibold" :class="copied ? 'text-green-700' : 'text-terracotta-700'">
+    <span class="shrink-0 text-xs font-semibold" :class="copied ? 'text-green-700' : 'text-maroon-700'">
       {{ copied ? 'Copied' : 'Copy' }}
     </span>
   </button>

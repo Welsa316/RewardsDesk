@@ -72,7 +72,7 @@ function isActive(item) {
           <span
             v-if="item.badge"
             class="rounded-full px-2 py-0.5 text-xs font-semibold"
-            :class="isActive(item) ? 'bg-white/20 text-white' : 'bg-terracotta text-white'"
+            :class="isActive(item) ? 'bg-white/20 text-white' : 'bg-maroon text-white'"
           >
             {{ item.badge }}
           </span>

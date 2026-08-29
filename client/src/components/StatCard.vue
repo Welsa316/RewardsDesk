@@ -22,7 +22,7 @@ const pct = computed(() =>
     </div>
     <div v-if="pct !== null" class="mt-3">
       <div class="h-2 w-full overflow-hidden rounded-full bg-sand">
-        <div class="h-full rounded-full bg-terracotta transition-all duration-500" :style="{ width: pct + '%' }" />
+        <div class="h-full rounded-full bg-maroon transition-all duration-500" :style="{ width: pct + '%' }" />
       </div>
       <p class="mt-1.5 text-xs text-slate-warm">{{ pct }}% of goal</p>
     </div>

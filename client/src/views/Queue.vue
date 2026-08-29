@@ -121,7 +121,7 @@ function onWalkUpCreated(data) {
           <span class="min-w-0 truncate text-ink">{{ r.name }} — {{ r.label }}</span>
           <button
             type="button"
-            class="shrink-0 font-medium text-terracotta-700 hover:underline"
+            class="shrink-0 font-medium text-maroon-700 hover:underline"
             @click="undoRecent(r)"
           >
             Undo

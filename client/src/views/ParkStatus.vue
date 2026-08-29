@@ -230,7 +230,7 @@ async function submitExtend() {
             <div class="mt-3"><ParkingStatusPill :status="data.status" /></div>
             <p v-if="loadError" class="mt-3 text-xs text-slate-warm">
               {{ loadError }}
-              <button type="button" class="font-medium text-terracotta-700 hover:underline" @click="load">
+              <button type="button" class="font-medium text-maroon-700 hover:underline" @click="load">
                 Retry
               </button>
             </p>
@@ -263,7 +263,7 @@ async function submitExtend() {
             </template>
             <p v-else-if="stillProcessing" class="mt-4 text-sm text-slate-warm">
               We've received your payment — it can take a minute to appear here.
-              <button type="button" class="font-medium text-terracotta-700 hover:underline" @click="load">
+              <button type="button" class="font-medium text-maroon-700 hover:underline" @click="load">
                 Refresh
               </button>
               , or show this code at the front desk.
@@ -273,7 +273,7 @@ async function submitExtend() {
             </p>
             <p v-else-if="data.status === 'canceled'" class="mt-4 text-sm text-slate-warm">
               This session was canceled before payment.
-              <RouterLink to="/park" class="font-medium text-terracotta-700 hover:underline">Start over</RouterLink>
+              <RouterLink to="/park" class="font-medium text-maroon-700 hover:underline">Start over</RouterLink>
             </p>
 
             <p v-if="data.net_paid_cents > 0" class="mt-4 text-sm text-slate-warm">
@@ -283,7 +283,7 @@ async function submitExtend() {
                 :href="data.receipt_url"
                 target="_blank"
                 rel="noopener"
-                class="ml-1 font-medium text-terracotta-700 hover:underline"
+                class="ml-1 font-medium text-maroon-700 hover:underline"
               >
                 View receipt
               </a>

@@ -168,7 +168,7 @@ onMounted(async () => {
           </div>
           <div class="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-sand">
             <div
-              class="h-full rounded-full bg-terracotta transition-all duration-500"
+              class="h-full rounded-full bg-maroon transition-all duration-500"
               :style="{ width: (r.enrolled / maxEnrolled) * 100 + '%' }"
             />
           </div>

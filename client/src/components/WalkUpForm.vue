@@ -155,7 +155,7 @@ async function submit() {
         <input
           v-model="form.consent"
           type="checkbox"
-          class="mt-0.5 h-5 w-5 shrink-0 rounded border-sand text-terracotta focus:ring-terracotta/40"
+          class="mt-0.5 h-5 w-5 shrink-0 rounded border-sand text-maroon focus:ring-maroon/40"
         />
         <span class="text-sm text-slate-warm">
           The guest authorizes us to use these details to enroll them in Best Western Rewards.
@@ -167,7 +167,7 @@ async function submit() {
         <input
           v-model="enrolledNow"
           type="checkbox"
-          class="h-5 w-5 rounded border-sand text-terracotta focus:ring-terracotta/40"
+          class="h-5 w-5 rounded border-sand text-maroon focus:ring-maroon/40"
         />
         <span class="text-sm text-ink">
           Mark as enrolled now

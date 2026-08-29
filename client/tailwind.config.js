@@ -9,11 +9,14 @@ export default {
           600: '#1B2A40',
           700: '#16243A',
         },
-        terracotta: {
-          DEFAULT: '#C65D3E',
-          300: '#EDA88F', // light tint — accessible accent text on ink backgrounds
-          600: '#B14E31',
-          700: '#974227',
+        // Brand maroon, sampled from the printed lot sign so screen and print
+        // match. 13.1:1 on white, so it works as body-weight link text and as a
+        // filled surface with white text on it.
+        maroon: {
+          DEFAULT: '#680018',
+          300: '#E8A3B0', // light tint — 8.5:1 on ink, for accent text on dark
+          600: '#680018',
+          700: '#4F0012', // hover/pressed
         },
         warm: '#FBF8F3',
         sand: '#E8DDD0',

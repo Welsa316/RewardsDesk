@@ -41,7 +41,7 @@ const CONTACT_EMAIL = 'aks1321@gmail.com';
             session so we can send you back to it. Message frequency: 1 message per request. We do
             not send marketing texts and we never share your number with anyone for marketing.
             Reply STOP at any time to opt out, HELP for help. Full program terms are on the
-            <RouterLink to="/sms" class="font-medium text-terracotta-700 hover:underline">text service page</RouterLink>.
+            <RouterLink to="/sms" class="font-medium text-maroon-700 hover:underline">text service page</RouterLink>.
           </p>
         </section>
 
@@ -68,7 +68,7 @@ const CONTACT_EMAIL = 'aks1321@gmail.com';
           <p class="mt-1.5 text-slate-warm">
             We keep records only as long as we need them for operations, accounting, and tax. To ask
             what we hold about you or to have it deleted, email
-            <a :href="`mailto:${CONTACT_EMAIL}`" class="font-medium text-terracotta-700 hover:underline">{{ CONTACT_EMAIL }}</a>.
+            <a :href="`mailto:${CONTACT_EMAIL}`" class="font-medium text-maroon-700 hover:underline">{{ CONTACT_EMAIL }}</a>.
           </p>
         </section>
       </article>

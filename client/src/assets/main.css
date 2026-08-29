@@ -29,7 +29,7 @@
   .input {
     @apply w-full rounded-xl border border-sand bg-white px-4 py-3 text-base text-ink
            shadow-sm outline-none transition placeholder:text-slate-500
-           focus:border-terracotta focus:ring-2 focus:ring-terracotta/25;
+           focus:border-maroon focus:ring-2 focus:ring-maroon/25;
   }
 
   .input-error {
@@ -46,9 +46,9 @@
            focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
-  /* terracotta-600 keeps white button text at ≥4.5:1 (AA). */
+  /* maroon-600 keeps white button text at ≥4.5:1 (AA). */
   .btn-primary {
-    @apply bg-terracotta-600 text-white hover:bg-terracotta-700 focus-visible:ring-terracotta/40;
+    @apply bg-maroon-600 text-white hover:bg-maroon-700 focus-visible:ring-maroon/40;
   }
 
   .btn-secondary {

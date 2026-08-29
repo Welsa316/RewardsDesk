@@ -314,7 +314,7 @@ function refundableCents(payment) {
                   :href="p.receipt_url"
                   target="_blank"
                   rel="noopener"
-                  class="font-medium text-terracotta-700 hover:underline"
+                  class="font-medium text-maroon-700 hover:underline"
                 >
                   Receipt
                 </a>

@@ -53,7 +53,7 @@ const SIGN_IMAGE = '/sign.png';
             <dt class="font-medium text-slate-warm">Help</dt>
             <dd class="text-ink">
               Reply HELP, or email
-              <a :href="`mailto:${CONTACT_EMAIL}`" class="text-terracotta-700 hover:underline">{{ CONTACT_EMAIL }}</a>
+              <a :href="`mailto:${CONTACT_EMAIL}`" class="text-maroon-700 hover:underline">{{ CONTACT_EMAIL }}</a>
             </dd>
           </div>
         </dl>
@@ -61,9 +61,9 @@ const SIGN_IMAGE = '/sign.png';
         <p class="mt-6 border-t border-sand pt-6 text-sm text-slate-warm">
           We never send marketing messages through this number, and we do not sell or share your
           phone number. See our
-          <RouterLink to="/terms" class="font-medium text-terracotta-700 hover:underline">Terms of Service</RouterLink>
+          <RouterLink to="/terms" class="font-medium text-maroon-700 hover:underline">Terms of Service</RouterLink>
           and
-          <RouterLink to="/privacy" class="font-medium text-terracotta-700 hover:underline">Privacy Policy</RouterLink>.
+          <RouterLink to="/privacy" class="font-medium text-maroon-700 hover:underline">Privacy Policy</RouterLink>.
         </p>
       </div>
 

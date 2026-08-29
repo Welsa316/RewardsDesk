@@ -30,7 +30,7 @@ function toneClass(type) {
           <button
             v-if="t.action"
             type="button"
-            class="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-terracotta-300 hover:bg-white/10"
+            class="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-maroon-300 hover:bg-white/10"
             @click="runAction(t)"
           >
             {{ t.action.label }}
