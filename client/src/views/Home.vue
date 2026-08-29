@@ -38,7 +38,7 @@ onMounted(async () => {
         v-if="!logoMissing"
         :src="LOGO"
         :alt="brand"
-        class="h-9 w-auto md:h-10"
+        class="h-11 w-auto md:h-14"
         @error="logoMissing = true"
       />
       <span v-else class="font-serif text-lg text-maroon md:text-xl">{{ brand }}</span>
