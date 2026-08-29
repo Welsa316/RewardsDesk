@@ -76,7 +76,7 @@ export const settings = {
 };
 
 export const promosPublic = {
-  active: () => http.get('/public/promos'),
+  active: (page) => http.get('/public/promos', { params: page ? { page } : {} }),
 };
 
 export const promos = {

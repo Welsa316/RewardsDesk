@@ -7,13 +7,14 @@ import { RouterLink } from 'vue-router';
 import { parkingPublic } from '../api';
 import PublicFooter from '../components/PublicFooter.vue';
 import PromoStrip from '../components/PromoStrip.vue';
+import ShuttleNotice from '../components/ShuttleNotice.vue';
 
 const CONTACT_EMAIL = 'bwpairport189@gmail.com';
 const CONTACT_PHONE_DISPLAY = '(504) 360-2990';
 const CONTACT_PHONE_TEL = '+15043602990';
 
-// Served from public/ at runtime; falls back to the text wordmark if absent so
-// the header is never broken while the file is being added or swapped.
+// Served from public/ at runtime; the header falls back to the text wordmark if
+// the file is ever missing, so it is never broken mid-swap.
 const LOGO = '/logo.png';
 const logoMissing = ref(false);
 
@@ -27,20 +28,26 @@ onMounted(async () => {
     const { data } = await parkingPublic.config();
     if (data?.brand_name) brand.value = data.brand_name;
   } catch {
-    // Keep the default; the page is still fully usable.
+    // The page is fully usable without it.
   }
 });
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-warm">
-    <header
-      class="sticky top-0 z-40 flex items-center gap-3 border-b border-sand/70 bg-warm/90 px-5 py-3.5 backdrop-blur-sm md:px-10"
-    >
-      <!-- The mark itself reads "MSY Best Parking", so its alt text is fixed
-           and does not wait on config. The text fallback does use the
-           configured name, and renders nothing until that resolves. The fixed
-           height keeps the header from jumping either way. -->
+  <div class="relative flex min-h-screen flex-col bg-warm">
+    <!-- The skyline sits behind the header and the two cards, then dissolves
+         into the page colour so everything below it reads normally. It is
+         decorative, so it is a background rather than an <img> with alt text. -->
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-[560px] overflow-hidden md:h-[620px]" aria-hidden="true">
+      <div class="absolute inset-0 bg-[url('/skyline.jpg')] bg-cover bg-center"></div>
+      <!-- Light wash at the very top so the maroon wordmark always has ground
+           under it, whichever part of the illustration lands there. -->
+      <div class="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-warm/85 to-transparent"></div>
+      <!-- And a fade out at the bottom, so there is no hard seam. -->
+      <div class="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent to-warm"></div>
+    </div>
+
+    <header class="relative z-10 flex items-center gap-3 px-5 py-3.5 md:px-10">
       <img
         v-if="!logoMissing"
         :src="LOGO"
@@ -53,19 +60,18 @@ onMounted(async () => {
       </span>
     </header>
 
-    <main class="mx-auto w-full max-w-5xl flex-1 px-5 py-8 md:px-10 md:py-12">
-      <PromoStrip />
+    <main class="relative z-10 mx-auto w-full max-w-5xl flex-1 px-5 pb-8 pt-4 md:px-10 md:pb-12">
+      <PromoStrip page="home" />
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <!-- Glass: translucent over the illustration, blurred so type stays
+             legible whatever is behind it, with a light rim to catch the edge. -->
         <RouterLink
           to="/park"
-          class="group relative flex flex-col overflow-hidden rounded-3xl border border-sand bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-maroon/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon/40 md:col-span-8 md:p-10"
+          class="group relative flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-7 shadow-xl ring-1 ring-black/5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon/40 md:col-span-8 md:p-10"
         >
-          <div
-            class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-maroon/5 blur-3xl transition-colors duration-500 group-hover:bg-maroon/10"
-          />
           <span
-            class="relative z-10 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-maroon text-white"
+            class="relative z-10 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-maroon text-white shadow-lg"
             aria-hidden="true"
           >
             <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -74,13 +80,13 @@ onMounted(async () => {
           </span>
           <div class="relative z-10 max-w-lg">
             <h2 class="font-serif text-3xl leading-tight text-ink md:text-4xl">Pay for Parking</h2>
-            <p class="mt-3 text-base leading-relaxed text-slate-warm md:text-lg">
+            <p class="mt-3 text-base leading-relaxed text-ink/75 md:text-lg">
               Enter your plate, choose how many days you're staying, and pay by card. You'll get a
               link to check your time or add more.
             </p>
           </div>
           <span
-            class="relative z-10 mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-maroon px-7 py-3.5 text-base font-semibold text-white shadow-sm transition group-hover:bg-maroon-700 md:w-auto md:self-start"
+            class="relative z-10 mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-maroon px-7 py-3.5 text-base font-semibold text-white shadow-lg transition group-hover:bg-maroon-700 md:w-auto md:self-start"
           >
             Start
             <svg class="h-5 w-5 transition group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -91,13 +97,10 @@ onMounted(async () => {
 
         <RouterLink
           to="/enroll"
-          class="group relative flex flex-col overflow-hidden rounded-3xl border border-sand bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-ink/30 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30 md:col-span-4"
+          class="group relative flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-7 shadow-xl ring-1 ring-black/5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30 md:col-span-4"
         >
-          <div
-            class="pointer-events-none absolute -bottom-12 -left-12 h-44 w-44 rounded-full bg-ink/5 blur-2xl transition-colors duration-500 group-hover:bg-ink/10"
-          />
           <span
-            class="relative z-10 mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-white"
+            class="relative z-10 mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-white shadow-lg"
             aria-hidden="true"
           >
             <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -106,7 +109,7 @@ onMounted(async () => {
           </span>
           <div class="relative z-10">
             <h2 class="font-serif text-2xl text-ink">Rewards Enrollment</h2>
-            <p class="mt-2 text-base leading-relaxed text-slate-warm">
+            <p class="mt-2 text-base leading-relaxed text-ink/75">
               Sign up for the hotel's loyalty program. Fill in your details here and the front desk
               finishes it at check-in.
             </p>
@@ -154,6 +157,10 @@ onMounted(async () => {
             </a>
           </div>
         </section>
+      </div>
+
+      <div class="mt-4">
+        <ShuttleNotice />
       </div>
 
       <PublicFooter />

@@ -4,7 +4,7 @@ import { invalidateSettings } from '../lib/settings.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { cleanStr } from '../lib/validation.js';
-import { publicBaseUrl, stripeEnabled } from '../lib/stripe.js';
+import { publicBaseUrl, stripeEnabled, stripeTaxRateConfigured } from '../lib/stripe.js';
 import { emailEnabled } from '../lib/email.js';
 import { twilioEnabled } from '../lib/twilio.js';
 import { storageAvailable } from '../lib/uploads.js';
@@ -43,6 +43,7 @@ router.get('/', async (req, res, next) => {
         email: emailEnabled(),
         sms: twilioEnabled(),
         uploads: storageAvailable(),
+        stripe_tax_rate: stripeTaxRateConfigured(),
       },
     });
   } catch (err) {

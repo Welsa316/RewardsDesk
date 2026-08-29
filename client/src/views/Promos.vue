@@ -14,7 +14,13 @@ const storageOk = ref(true);
 const editing = ref(null); // the row being edited, or {} for a new one
 const busy = ref(false);
 const fieldErrors = reactive({});
-const form = reactive({ title: '', image_url: '', start_date: '', end_date: '', link_to: 'none' });
+const PAGES = [
+  { value: 'home', label: 'Home page' },
+  { value: 'enroll', label: 'Rewards enrollment' },
+  { value: 'park', label: 'Parking payment page' },
+];
+
+const form = reactive({ title: '', image_url: '', start_date: '', end_date: '', link_to: 'none', show_on: ['home', 'enroll'] });
 const previewUrl = ref('');
 const uploading = ref(false);
 
@@ -41,7 +47,7 @@ onMounted(load);
 
 function openNew() {
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
-  Object.assign(form, { title: '', image_url: '', start_date: today(), end_date: today(), link_to: 'none' });
+  Object.assign(form, { title: '', image_url: '', start_date: today(), end_date: today(), link_to: 'none', show_on: ['home', 'enroll'] });
   previewUrl.value = '';
   editing.value = {};
 }
@@ -54,6 +60,7 @@ function openEdit(p) {
     start_date: p.start_date.slice(0, 10),
     end_date: p.end_date.slice(0, 10),
     link_to: p.link_to || 'none',
+    show_on: [...(p.show_on || ['home', 'enroll'])],
   });
   previewUrl.value = p.image_url;
   editing.value = p;
@@ -229,6 +236,26 @@ function fmt(d) {
             <p v-if="fieldErrors.end_date" class="field-error">{{ fieldErrors.end_date }}</p>
           </div>
         </div>
+        <fieldset>
+          <legend class="label">Show this promo on</legend>
+          <div class="flex flex-col gap-2">
+            <label v-for="pg in PAGES" :key="pg.value" class="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                v-model="form.show_on"
+                type="checkbox"
+                :value="pg.value"
+                class="h-5 w-5 rounded border-sand text-maroon focus:ring-maroon/40"
+              />
+              {{ pg.label }}
+            </label>
+          </div>
+          <p v-if="fieldErrors.show_on" class="field-error">{{ fieldErrors.show_on }}</p>
+          <p class="mt-1 text-xs text-slate-warm">
+            The parking payment page is off by default — most promos are rewards offers, and someone
+            part-way through paying should not be advertised at.
+          </p>
+        </fieldset>
+
         <div>
           <label class="label" for="promo_link">When someone taps the image</label>
           <select id="promo_link" v-model="form.link_to" class="input">

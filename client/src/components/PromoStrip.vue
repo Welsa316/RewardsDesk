@@ -6,12 +6,18 @@ import { ref, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
 import { promosPublic } from '../api';
 
+// Each page names itself, so a promo can be scoped to where it belongs — a
+// rewards offer has no business interrupting someone mid-payment.
+const props = defineProps({
+  page: { type: String, required: true },
+});
+
 const promos = ref([]);
 const index = ref(0);
 
 onMounted(async () => {
   try {
-    const { data } = await promosPublic.active();
+    const { data } = await promosPublic.active(props.page);
     promos.value = data.promos || [];
   } catch {
     // A promo is decoration; never let it break the page it sits on.

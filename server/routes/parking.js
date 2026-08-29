@@ -49,7 +49,15 @@ const NET_PAID_JOIN = `
     SELECT session_id,
            COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND status='succeeded'), 0)::int
          - COALESCE(SUM(amount_cents) FILTER (WHERE type='refund' AND status='succeeded'), 0)::int
-           AS net_paid_cents
+           AS net_paid_cents,
+           -- The same net figure split, so a return can be filed straight from
+           -- the export rather than rebuilt from individual payment rows.
+           COALESCE(SUM(subtotal_cents) FILTER (WHERE type='charge' AND status='succeeded'), 0)::int
+         - COALESCE(SUM(subtotal_cents) FILTER (WHERE type='refund' AND status='succeeded'), 0)::int
+           AS net_subtotal_cents,
+           COALESCE(SUM(tax_cents) FILTER (WHERE type='charge' AND status='succeeded'), 0)::int
+         - COALESCE(SUM(tax_cents) FILTER (WHERE type='refund' AND status='succeeded'), 0)::int
+           AS net_tax_cents
       FROM parking_payments GROUP BY session_id
   ) pay ON pay.session_id = ps.id`;
 
@@ -703,6 +711,8 @@ const EXPORT_COLUMNS = [
   ['quantity', 'Qty'],
   ['starts_at', 'Entered'],
   ['paid_through', 'Paid through'],
+  ['net_subtotal_cents', 'Net subtotal'],
+  ['net_tax_cents', 'Net tax'],
   ['net_paid_cents', 'Net paid'],
   ['comp_reason', 'Comp reason'],
   ['comp_authorized_by', 'Comp authorized by'],
@@ -786,7 +796,9 @@ router.get('/export', requireAdmin, async (req, res, next) => {
     const header = EXPORT_COLUMNS.map(([, label]) => csvCell(label, tz)).join(',');
     const body = rows.map((r) =>
       EXPORT_COLUMNS.map(([key]) =>
-        key === 'net_paid_cents' ? csvMoney(r[key]) : csvCell(r[key], tz),
+        ['net_paid_cents', 'net_subtotal_cents', 'net_tax_cents'].includes(key)
+          ? csvMoney(r[key])
+          : csvCell(r[key], tz),
       ).join(','),
     );
     const csv = [header, ...body].join('\r\n');

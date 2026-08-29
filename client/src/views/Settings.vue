@@ -25,6 +25,7 @@ const integrationRows = [
   { key: 'sms', label: 'Inbound SMS', hint: 'TWILIO_AUTH_TOKEN' },
   { key: 'email', label: 'Email notifications', hint: 'RESEND_API_KEY + EMAIL_FROM' },
   { key: 'uploads', label: 'Promo image storage', hint: 'UPLOAD_DIR (needs a mounted volume)' },
+  { key: 'stripe_tax_rate', label: 'Stripe tax line', hint: 'STRIPE_TAX_RATE_ID — itemises tax on the receipt' },
 ];
 const saving = ref(false);
 

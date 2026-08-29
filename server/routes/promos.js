@@ -24,11 +24,14 @@ router.get('/public/promos', async (req, res, next) => {
   try {
     const tz = await hotelTimezone();
     const { rows } = await query(
-      `SELECT id, title, image_url, link_to
+      `SELECT id, title, image_url, link_to, show_on
          FROM promo_posts
         WHERE (now() AT TIME ZONE $1)::date BETWEEN start_date AND end_date
+          AND ($2::text IS NULL OR $2 = ANY(show_on))
         ORDER BY start_date DESC, id DESC`,
-      [tz],
+        // An unknown or absent page returns everything; the public pages always
+        // name themselves, so in practice this only widens for a manual call.
+        [tz, ['home', 'enroll', 'park'].includes(req.query.page) ? req.query.page : null],
     );
     res.json({ promos: rows });
   } catch (err) {
@@ -102,6 +105,10 @@ function readBody(body) {
   // a payment form is an open redirect waiting to happen.
   const LINKS = ['none', 'enroll', 'park'];
   const link_to = LINKS.includes(body?.link_to) ? body.link_to : 'none';
+  const PAGES = ['home', 'enroll', 'park'];
+  const show_on = Array.isArray(body?.show_on)
+    ? [...new Set(body.show_on.filter((v) => PAGES.includes(v)))]
+    : ['home', 'enroll'];
 
   const fields = {};
   if (!title) fields.title = 'A title is required.';
@@ -111,7 +118,8 @@ function readBody(body) {
   if (!fields.start_date && !fields.end_date && end_date < start_date) {
     fields.end_date = 'The end date must be on or after the start date.';
   }
-  return { title, image_url, start_date, end_date, link_to, fields };
+  if (!show_on.length) fields.show_on = 'Choose at least one page.';
+  return { title, image_url, start_date, end_date, link_to, show_on, fields };
 }
 
 router.post('/promos', async (req, res, next) => {
@@ -121,9 +129,9 @@ router.post('/promos', async (req, res, next) => {
       return res.status(422).json({ error: 'Please fix the highlighted fields.', fields: c.fields });
     }
     const { rows } = await query(
-      `INSERT INTO promo_posts (title, image_url, start_date, end_date, link_to, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [c.title, c.image_url, c.start_date, c.end_date, c.link_to, req.user.id],
+      `INSERT INTO promo_posts (title, image_url, start_date, end_date, link_to, show_on, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [c.title, c.image_url, c.start_date, c.end_date, c.link_to, c.show_on, req.user.id],
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -145,9 +153,10 @@ router.patch('/promos/:id', async (req, res, next) => {
     if (!existing[0]) return res.status(404).json({ error: 'Promo not found.' });
 
     const { rows } = await query(
-      `UPDATE promo_posts SET title=$1, image_url=$2, start_date=$3, end_date=$4, link_to=$5
-        WHERE id=$6 RETURNING *`,
-      [c.title, c.image_url, c.start_date, c.end_date, c.link_to, id],
+      `UPDATE promo_posts SET title=$1, image_url=$2, start_date=$3, end_date=$4, link_to=$5,
+              show_on=$6
+        WHERE id=$7 RETURNING *`,
+      [c.title, c.image_url, c.start_date, c.end_date, c.link_to, c.show_on, id],
     );
     // Only bin the old file once the row pointing at it is gone, and only if
     // no other promo is still using it.

@@ -5,9 +5,9 @@ import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { parkingPublic } from '../api';
 import DurationPicker from '../components/DurationPicker.vue';
+import ShuttleNotice from '../components/ShuttleNotice.vue';
 import { formatMoney } from '../utils/format';
 import { US_STATES, DEFAULT_STATE } from '../utils/states';
-import PromoStrip from '../components/PromoStrip.vue';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
 
 const route = useRoute();
@@ -323,6 +323,8 @@ async function submit() {
           Card payments are processed securely by Stripe. Your card details never touch our systems.
         </p>
       </form>
+
+      <ShuttleNotice compact />
     </div>
   </div>
 </template>

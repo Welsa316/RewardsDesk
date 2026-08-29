@@ -175,7 +175,7 @@ async function submitExtend() {
 <template>
   <div class="min-h-screen bg-warm px-4 py-8">
     <div class="mx-auto w-full max-w-md">
-      <PromoStrip />
+      <PromoStrip page="park" />
       <!-- Not found -->
       <div v-if="notFound" class="card p-8 text-center">
         <h1 class="font-serif text-2xl text-ink">Link not found</h1>
