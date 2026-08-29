@@ -5,6 +5,7 @@ import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { getStripe, publicBaseUrl } from '../lib/stripe.js';
+import { sendRefundNotice } from '../lib/email.js';
 import { activeDailyRate } from '../lib/parkingRates.js';
 import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
 import { cleanPlateState } from '../lib/states.js';
@@ -483,6 +484,14 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
     });
 
     res.status(result.code).json(result.body);
+
+    // After responding: a refund that succeeded must not be reported as failed
+    // because an email bounced.
+    if (result.code === 201) {
+      notifyRefund(id, result.body).catch((err) =>
+        console.error('refund email failed:', err?.message || err),
+      );
+    }
   } catch (err) {
     next(err);
   }
@@ -752,5 +761,41 @@ router.get('/export', requireAdmin, async (req, res, next) => {
     next(err);
   }
 });
+
+/** Tells the guest their money is coming back. Best effort, never blocking. */
+async function notifyRefund(sessionId, body) {
+  const { rows } = await query(
+    `SELECT ps.email, ps.plate, ps.plate_state, ps.confirmation_code,
+            COALESCE(s.parking_brand_name, s.hotel_name) AS brand_name, s.timezone
+       FROM parking_sessions ps CROSS JOIN settings s
+      WHERE s.id = 1 AND ps.id = $1`,
+    [sessionId],
+  );
+  const r = rows[0];
+  if (!r?.email) return;
+
+  // Full vs partial changes the wording, so work it out from the ledger rather
+  // than guessing from the amount alone.
+  const { rows: totals } = await query(
+    `SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type='charge' AND status='succeeded'), 0)::int AS charged,
+            COALESCE(SUM(amount_cents) FILTER (WHERE type='refund' AND status='succeeded'), 0)::int AS refunded
+       FROM parking_payments WHERE session_id = $1`,
+    [sessionId],
+  );
+
+  await sendRefundNotice({
+    to: r.email,
+    brandName: r.brand_name,
+    confirmationCode: r.confirmation_code,
+    plate: r.plate,
+    plateState: r.plate_state,
+    amountCents: body.refunded_cents,
+    isFullRefund: totals[0].refunded >= totals[0].charged,
+    reason: null, // the internal note is not the guest's business
+    method: body.method,
+    refundedAt: new Date().toISOString(),
+    timeZone: r.timezone,
+  });
+}
 
 export default router;

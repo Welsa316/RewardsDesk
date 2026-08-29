@@ -23,6 +23,7 @@ import parkingPromoRoutes from './routes/parkingPromos.js';
 import smsRoutes from './routes/sms.js';
 import { uploadDir, UPLOAD_ROUTE } from './lib/uploads.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
+import { startExpiryReminders } from './lib/expiryReminders.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -159,4 +160,5 @@ app.use(errorHandler);
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`RewardsDesk API listening on :${port} (${isProd ? 'production' : 'development'})`);
+  startExpiryReminders();
 });

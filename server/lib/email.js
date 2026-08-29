@@ -175,3 +175,104 @@ export function sendEnrollmentAdminAlert({ firstName, lastName, email, phone, so
     html: layout('New rewards enrollment', body),
   });
 }
+
+/** Refund confirmation to the guest whose card was refunded. */
+export function sendRefundNotice({ to, brandName, confirmationCode, plate, plateState, amountCents, isFullRefund, reason, method, timeZone, refundedAt }) {
+  if (!to) return Promise.resolve(false);
+  const brand = brandName || 'Guest Parking';
+  // Cash and card-terminal refunds are handed over at the desk; saying "to your
+  // card" for those would have the guest watching a statement that never moves.
+  const settlement =
+    method === 'stripe'
+      ? 'This has been refunded to the card you paid with. It can take a few business days to appear on your statement.'
+      : 'This was refunded at the front desk.';
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.5">
+      We've refunded ${isFullRefund ? 'your parking payment' : 'part of your parking payment'}.
+    </p>
+    ${rows([
+      ['Confirmation', confirmationCode],
+      ['Vehicle', plateState ? `${plate} · ${plateState}` : plate],
+      ['Amount refunded', money(amountCents)],
+      ['Reason', reason],
+      ['Refunded', when(refundedAt, timeZone)],
+    ])}
+    <p style="margin:16px 0 0;font-size:14px;line-height:1.5;color:#4A5568">${settlement}</p>`;
+  return sendEmail({
+    to,
+    subject: `${brand} — ${money(amountCents)} refunded`,
+    html: layout(`${brand} refund`, body),
+  });
+}
+
+/** Heads-up that a guest's parking runs out shortly. */
+export function sendExpirationReminder({ to, brandName, confirmationCode, plate, plateState, paidThrough, statusUrl, timeZone }) {
+  if (!to) return Promise.resolve(false);
+  const brand = brandName || 'Guest Parking';
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.5">
+      Your parking runs out soon. If you're staying longer, add time before it expires to avoid
+      additional charges.
+    </p>
+    ${rows([
+      ['Confirmation', confirmationCode],
+      ['Vehicle', plateState ? `${plate} · ${plateState}` : plate],
+      ['Expires', when(paidThrough, timeZone)],
+    ])}
+    ${
+      statusUrl
+        ? `<p style="margin:20px 0 0"><a href="${escapeHtml(statusUrl)}" style="display:inline-block;background:#680018;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600">Add more time</a></p>`
+        : ''
+    }
+    <p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#4A5568">
+      Already left? You can ignore this.
+    </p>`;
+  return sendEmail({
+    to,
+    subject: `${brand} — parking for ${plate} expires soon`,
+    html: layout('Your parking expires soon', body),
+  });
+}
+
+/**
+ * Internal alert that an enrollment matches someone already on file.
+ *
+ * Goes to the desk rather than the guest: they cannot act on it, and telling
+ * someone they are a duplicate reads badly. The desk checks the loyalty
+ * terminal before enrolling again.
+ */
+export function sendDuplicateMemberAlert({ firstName, lastName, email, phone, matches, detailUrl }) {
+  const name = [firstName, lastName].filter(Boolean).join(' ') || 'Someone';
+  const list = (matches || [])
+    .slice(0, 5)
+    .map(
+      (m) =>
+        `<li style="margin:4px 0">${escapeHtml(
+          [m.first_name, m.last_name].filter(Boolean).join(' ') || 'Unnamed',
+        )}${m.email ? ` — ${escapeHtml(m.email)}` : ''}${m.phone ? ` — ${escapeHtml(m.phone)}` : ''}` +
+        `${m.status ? ` <span style="color:#4A5568">(${escapeHtml(m.status)})</span>` : ''}</li>`,
+    )
+    .join('');
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.5">
+      <strong>${escapeHtml(name)}</strong> just submitted a rewards enrollment that matches
+      ${(matches || []).length === 1 ? 'an existing record' : 'existing records'}.
+      Check the loyalty terminal before enrolling them again.
+    </p>
+    ${rows([
+      ['Submitted email', email],
+      ['Submitted phone', phone],
+    ])}
+    <p style="margin:16px 0 6px;font-size:14px;font-weight:600">Possible matches</p>
+    <ul style="margin:0;padding-left:18px;font-size:14px;color:#0F1B2D">${list}</ul>
+    ${
+      detailUrl
+        ? `<p style="margin:20px 0 0"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;background:#0F1B2D;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600">Open the queue</a></p>`
+        : ''
+    }`;
+  return sendEmail({
+    to: ADMIN_ALERT_TO,
+    subject: `Possible duplicate enrollment — ${name}`,
+    html: layout('Possible duplicate member', body),
+  });
+}
