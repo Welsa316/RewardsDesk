@@ -24,7 +24,7 @@ router.get('/public/promos', async (req, res, next) => {
   try {
     const tz = await hotelTimezone();
     const { rows } = await query(
-      `SELECT id, title, image_url
+      `SELECT id, title, image_url, link_to
          FROM promo_posts
         WHERE (now() AT TIME ZONE $1)::date BETWEEN start_date AND end_date
         ORDER BY start_date DESC, id DESC`,
@@ -98,6 +98,10 @@ function readBody(body) {
   const image_url = cleanStr(body?.image_url, 500);
   const start_date = cleanStr(body?.start_date, 10);
   const end_date = cleanStr(body?.end_date, 10);
+  // Whitelisted destinations only. A free-text URL on an image that sits above
+  // a payment form is an open redirect waiting to happen.
+  const LINKS = ['none', 'enroll', 'park'];
+  const link_to = LINKS.includes(body?.link_to) ? body.link_to : 'none';
 
   const fields = {};
   if (!title) fields.title = 'A title is required.';
@@ -107,7 +111,7 @@ function readBody(body) {
   if (!fields.start_date && !fields.end_date && end_date < start_date) {
     fields.end_date = 'The end date must be on or after the start date.';
   }
-  return { title, image_url, start_date, end_date, fields };
+  return { title, image_url, start_date, end_date, link_to, fields };
 }
 
 router.post('/promos', async (req, res, next) => {
@@ -117,9 +121,9 @@ router.post('/promos', async (req, res, next) => {
       return res.status(422).json({ error: 'Please fix the highlighted fields.', fields: c.fields });
     }
     const { rows } = await query(
-      `INSERT INTO promo_posts (title, image_url, start_date, end_date, created_by)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [c.title, c.image_url, c.start_date, c.end_date, req.user.id],
+      `INSERT INTO promo_posts (title, image_url, start_date, end_date, link_to, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [c.title, c.image_url, c.start_date, c.end_date, c.link_to, req.user.id],
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -141,9 +145,9 @@ router.patch('/promos/:id', async (req, res, next) => {
     if (!existing[0]) return res.status(404).json({ error: 'Promo not found.' });
 
     const { rows } = await query(
-      `UPDATE promo_posts SET title=$1, image_url=$2, start_date=$3, end_date=$4
-        WHERE id=$5 RETURNING *`,
-      [c.title, c.image_url, c.start_date, c.end_date, id],
+      `UPDATE promo_posts SET title=$1, image_url=$2, start_date=$3, end_date=$4, link_to=$5
+        WHERE id=$6 RETURNING *`,
+      [c.title, c.image_url, c.start_date, c.end_date, c.link_to, id],
     );
     // Only bin the old file once the row pointing at it is gone, and only if
     // no other promo is still using it.

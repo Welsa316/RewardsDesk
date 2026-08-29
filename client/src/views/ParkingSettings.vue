@@ -9,6 +9,7 @@ const form = reactive({
   parking_brand_name: '',
   parking_capacity: 0,
   daily_dollars: '',
+  tax_percent: '',
   parking_expiring_soon_minutes: 60,
   parking_lots: [],
 });
@@ -25,6 +26,8 @@ async function init() {
     form.parking_brand_name = data.parking_brand_name || '';
     form.parking_capacity = data.parking_capacity;
     form.daily_dollars = (data.parking_daily_cents / 100).toFixed(2);
+    // Basis points on the wire, a percentage in the field.
+    form.tax_percent = ((data.parking_tax_bps || 0) / 100).toFixed(2).replace(/\.00$/, '');
     form.parking_expiring_soon_minutes = data.parking_expiring_soon_minutes;
     form.parking_lots = [...(data.parking_lots || [])];
   } catch {
@@ -50,12 +53,21 @@ async function save() {
     toast.error('Rates must be valid dollar amounts.');
     return;
   }
+  // Percent in, basis points out — 20 becomes 2000, so no float ever reaches
+  // the money arithmetic.
+  const taxPct = Number(String(form.tax_percent).trim() || 0);
+  if (!Number.isFinite(taxPct) || taxPct < 0 || taxPct > 100) {
+    toast.error('Tax rate must be a percentage between 0 and 100.');
+    return;
+  }
+  const taxBps = Math.round(taxPct * 100);
   saving.value = true;
   try {
     await api.update({
       parking_brand_name: form.parking_brand_name,
       parking_capacity: Number(form.parking_capacity),
       parking_daily_cents: daily,
+      parking_tax_bps: taxBps,
       parking_expiring_soon_minutes: Number(form.parking_expiring_soon_minutes),
       parking_lots: form.parking_lots,
     });
@@ -90,15 +102,19 @@ async function save() {
           </p>
         </div>
         <div class="grid grid-cols-2 gap-4">
-          
           <div>
             <label class="label" for="pb_daily">Daily rate ($)</label>
             <input id="pb_daily" v-model="form.daily_dollars" class="input" inputmode="decimal" />
           </div>
+          <div>
+            <label class="label" for="pb_tax">Tax rate (%)</label>
+            <input id="pb_tax" v-model="form.tax_percent" class="input" inputmode="decimal" placeholder="0" />
+          </div>
         </div>
         <p class="text-xs text-slate-warm">
-          Hourly totals are automatically capped at the daily rate. Rate changes apply to new
-          purchases only.
+          Tax is added on top of the daily rate and shown to the guest before they pay. Rate changes
+          apply to new purchases only. If you also set a tax rate in Stripe, it must match this one —
+          the deploy log warns on every payment if they disagree.
         </p>
         <div class="grid grid-cols-2 gap-4">
           <div>

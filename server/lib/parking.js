@@ -15,6 +15,28 @@ export const SELLABLE_RATE_TYPES = ['daily'];
 // Returns integer cents, or null for an invalid rate/quantity combination.
 // `rates.parking_daily_cents` is the effective rate for the day, which the
 // caller resolves through activeDailyRate() so a promo is applied consistently.
+/**
+ * Tax on a subtotal, in cents.
+ *
+ * Basis points rather than a percentage float: 20% is the integer 2000, so the
+ * arithmetic is exact and a rate can never arrive as 19.999999. Rounded half up
+ * on the tax itself rather than on the total, so a line and its parts always
+ * reconcile.
+ */
+export function taxCents(subtotalCents, taxBps) {
+  const bps = Number(taxBps) || 0;
+  if (bps <= 0) return 0;
+  return Math.round((Number(subtotalCents) * bps) / 10000);
+}
+
+/** Subtotal, tax and total for a quantity of days. */
+export function priceBreakdown(rateType, quantity, rates, taxBps) {
+  const subtotal = priceCents(rateType, quantity, rates);
+  if (subtotal === null) return null;
+  const tax = taxCents(subtotal, taxBps);
+  return { subtotal, tax, total: subtotal + tax };
+}
+
 export function priceCents(rateType, quantity, rates) {
   const qty = Number(quantity);
   if (!Number.isInteger(qty)) return null;

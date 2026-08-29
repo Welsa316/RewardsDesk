@@ -17,6 +17,7 @@ const route = useRoute();
 const brand = ref('');
 const rates = ref(null); // { daily_cents }
 const standardCents = ref(0);
+const taxBps = ref(0);
 const promo = ref(null); // { name, rate_cents, end_date } while one is running
 const loadError = ref(false);
 const submitting = ref(false);
@@ -68,6 +69,7 @@ onMounted(async () => {
     brand.value = data.brand_name;
     rates.value = { daily_cents: data.daily_cents };
     standardCents.value = data.standard_daily_cents || data.daily_cents;
+    taxBps.value = data.tax_bps || 0;
     promo.value = data.promo || null;
     applyParkingChrome(parkingTitle(data.brand_name));
   } catch {
@@ -139,8 +141,6 @@ async function submit() {
         <h1 class="flex min-h-8 items-center justify-center font-serif text-2xl text-ink">{{ brand }}</h1>
         <p class="mt-1 text-sm text-slate-warm">Pay for parking in under a minute.</p>
       </header>
-
-      <PromoStrip />
 
       <!-- A rate promo is a price change, so it is stated plainly next to the
            standard rate rather than dressed up as marketing. -->
@@ -310,7 +310,7 @@ async function submit() {
 
         <div v-if="rates">
           <p class="label">How long are you parking?</p>
-          <DurationPicker v-model="duration" :rates="rates" :standard-cents="standardCents" />
+          <DurationPicker v-model="duration" :rates="rates" :standard-cents="standardCents" :tax-bps="taxBps" />
         </div>
         <div v-else class="h-32 animate-pulse rounded-xl border border-sand bg-white/60" />
 

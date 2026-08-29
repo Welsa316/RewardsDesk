@@ -15,7 +15,7 @@ router.use(requireAuth, requireAdmin);
 const COLUMNS =
   'id, hotel_name, property_code, annual_goal, monthly_goal, sources, timezone, ' +
   'parking_brand_name, parking_capacity, parking_hourly_cents, parking_daily_cents, ' +
-  'parking_lots, parking_expiring_soon_minutes, updated_at';
+  'parking_lots, parking_expiring_soon_minutes, parking_tax_bps, updated_at';
 
 function isValidTimezone(tz) {
   try {
@@ -92,6 +92,17 @@ router.patch('/', async (req, res, next) => {
       params.push(cleanStr(b.parking_brand_name, 100));
       sets.push(`parking_brand_name = $${params.length}`);
     }
+    if (b.parking_tax_bps !== undefined && b.parking_tax_bps !== null && b.parking_tax_bps !== '') {
+      const n = Number(b.parking_tax_bps);
+      // Basis points: 2000 is 20%. Capped at 100% because anything above that
+      // is a typo, not a tax.
+      if (!Number.isInteger(n) || n < 0 || n > 10000) {
+        return res.status(422).json({ error: 'Tax rate must be between 0% and 100%.' });
+      }
+      params.push(n);
+      sets.push(`parking_tax_bps = $${params.length}`);
+    }
+
     for (const key of ['parking_capacity', 'parking_hourly_cents', 'parking_daily_cents', 'parking_expiring_soon_minutes']) {
       if (b[key] !== undefined && b[key] !== null && b[key] !== '') {
         const n = Number(b[key]);

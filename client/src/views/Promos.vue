@@ -14,7 +14,7 @@ const storageOk = ref(true);
 const editing = ref(null); // the row being edited, or {} for a new one
 const busy = ref(false);
 const fieldErrors = reactive({});
-const form = reactive({ title: '', image_url: '', start_date: '', end_date: '' });
+const form = reactive({ title: '', image_url: '', start_date: '', end_date: '', link_to: 'none' });
 const previewUrl = ref('');
 const uploading = ref(false);
 
@@ -41,7 +41,7 @@ onMounted(load);
 
 function openNew() {
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
-  Object.assign(form, { title: '', image_url: '', start_date: today(), end_date: today() });
+  Object.assign(form, { title: '', image_url: '', start_date: today(), end_date: today(), link_to: 'none' });
   previewUrl.value = '';
   editing.value = {};
 }
@@ -53,6 +53,7 @@ function openEdit(p) {
     image_url: p.image_url,
     start_date: p.start_date.slice(0, 10),
     end_date: p.end_date.slice(0, 10),
+    link_to: p.link_to || 'none',
   });
   previewUrl.value = p.image_url;
   editing.value = p;
@@ -228,6 +229,19 @@ function fmt(d) {
             <p v-if="fieldErrors.end_date" class="field-error">{{ fieldErrors.end_date }}</p>
           </div>
         </div>
+        <div>
+          <label class="label" for="promo_link">When someone taps the image</label>
+          <select id="promo_link" v-model="form.link_to" class="input">
+            <option value="none">Nothing — the image is not clickable</option>
+            <option value="enroll">Open rewards enrollment</option>
+            <option value="park">Open pay for parking</option>
+          </select>
+          <p class="mt-1 text-xs text-slate-warm">
+            Pick a destination if the artwork has a "register now" or similar on it, so tapping
+            anywhere on the image goes there.
+          </p>
+        </div>
+
         <p class="text-xs text-slate-warm">Both dates are inclusive, in the hotel's timezone.</p>
 
         <div class="flex gap-2 pt-1">

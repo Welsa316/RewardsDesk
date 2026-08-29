@@ -54,9 +54,16 @@ export async function applyCompletedCheckout(cs) {
     // CLI replays, and reconciliation all land here and no-op.
     if (!payment || payment.status !== 'pending') return false;
 
+    // amount_cents is the tax-inclusive total, and Stripe's amount_total is too
+    // (it adds the tax rate to the pre-tax line we send). So this still compares
+    // like with like — and now doubles as the alarm for the app's tax rate and
+    // Stripe's tax rate having drifted apart, which would otherwise be invisible
+    // until a return was filed.
     if (Number.isInteger(cs.amount_total) && cs.amount_total !== payment.amount_cents) {
       console.warn(
-        `⚠ parking: amount mismatch on payment ${payment.id} — ours ${payment.amount_cents}, Stripe ${cs.amount_total}`,
+        `⚠ parking: amount mismatch on payment ${payment.id} — ours ${payment.amount_cents}, ` +
+          `Stripe ${cs.amount_total}. If tax is configured, check STRIPE_TAX_RATE_ID matches ` +
+          `the parking tax rate in Settings.`,
       );
     }
 

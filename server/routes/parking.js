@@ -11,6 +11,7 @@ import { cleanStr, isEmail, isPhone } from '../lib/validation.js';
 import { cleanPlateState } from '../lib/states.js';
 import {
   priceCents,
+  priceBreakdown,
   durationHours,
   generateConfirmationCode,
   derivedStatusSql,
@@ -37,7 +38,7 @@ const first = (v) => (Array.isArray(v) ? v[0] : v);
 async function parkingConfig() {
   const { rows } = await query(
     `SELECT parking_capacity, parking_expiring_soon_minutes,
-            parking_daily_cents, parking_lots, timezone
+            parking_daily_cents, parking_lots, timezone, parking_tax_bps
        FROM settings WHERE id = 1`,
   );
   return rows[0];
@@ -216,9 +217,10 @@ router.post('/sessions', async (req, res, next) => {
 
     const cfg = await parkingConfig();
     const { rateCents } = await activeDailyRate(cfg.parking_daily_cents);
-    const amount = rate_type
-      ? priceCents(rate_type, quantity, { parking_daily_cents: rateCents })
+    const price = rate_type
+      ? priceBreakdown(rate_type, quantity, { parking_daily_cents: rateCents }, cfg.parking_tax_bps)
       : null;
+    const amount = price?.total ?? null;
     if (amount === null) errors.quantity = 'Choose a valid duration.';
 
     if (Object.keys(errors).length) {
@@ -257,10 +259,15 @@ router.post('/sessions', async (req, res, next) => {
 
       await client.query(
         `INSERT INTO parking_payments
-           (session_id, type, purpose, method, amount_cents, rate_type, quantity, status, created_by, note)
-         VALUES ($1,'charge','initial',$2,$3,$4,$5,'succeeded',$6,$7)`,
+           (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
+            rate_type, quantity, status, created_by, note)
+         VALUES ($1,'charge','initial',$2,$3,$4,$5,$6,$7,'succeeded',$8,$9)`,
         [
-          session.id, kind === 'comp' ? 'comp' : desk_method, charged, rate_type, quantity,
+          session.id, kind === 'comp' ? 'comp' : desk_method, charged,
+          // A comp session charges nothing, so there is no tax to record either.
+          charged === 0 ? 0 : price.subtotal,
+          charged === 0 ? 0 : price.tax,
+          rate_type, quantity,
           req.user.id, kind === 'comp' ? comp_reason : null,
         ],
       );
@@ -337,9 +344,10 @@ router.post('/sessions/:id/extend', async (req, res, next) => {
 
     const cfg = await parkingConfig();
     const { rateCents } = await activeDailyRate(cfg.parking_daily_cents);
-    const amount = rate_type
-      ? priceCents(rate_type, quantity, { parking_daily_cents: rateCents })
+    const price = rate_type
+      ? priceBreakdown(rate_type, quantity, { parking_daily_cents: rateCents }, cfg.parking_tax_bps)
       : null;
+    const amount = price?.total ?? null;
     if (amount === null) return res.status(422).json({ error: 'Choose a valid duration.' });
 
     const hours = durationHours(rate_type, quantity);
@@ -357,9 +365,15 @@ router.post('/sessions/:id/extend', async (req, res, next) => {
       if (!rows[0]) return null;
       await client.query(
         `INSERT INTO parking_payments
-           (session_id, type, purpose, method, amount_cents, rate_type, quantity, status, created_by)
-         VALUES ($1,'charge','extension',$2,$3,$4,$5,'succeeded',$6)`,
-        [id, method, charged, rate_type, quantity, req.user.id],
+           (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
+            rate_type, quantity, status, created_by)
+         VALUES ($1,'charge','extension',$2,$3,$4,$5,$6,$7,'succeeded',$8)`,
+        [
+          id, method, charged,
+          charged === 0 ? 0 : price.subtotal,
+          charged === 0 ? 0 : price.tax,
+          rate_type, quantity, req.user.id,
+        ],
       );
       return rows[0];
     });
@@ -433,7 +447,8 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
       // COMMITTED each statement takes a fresh snapshot, so a refund committed
       // by the transaction we just waited on is visible here.
       const { rows: sumRows } = await client.query(
-        `SELECT COALESCE(SUM(amount_cents), 0)::int AS already_refunded
+        `SELECT COALESCE(SUM(amount_cents), 0)::int AS already_refunded,
+                COALESCE(SUM(tax_cents), 0)::int     AS tax_already_refunded
            FROM parking_payments
           WHERE refunded_payment_id = $1 AND type='refund' AND status='succeeded'`,
         [paymentId],
@@ -449,6 +464,26 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
         };
       }
 
+      // Split the refund across subtotal and tax. The admin enters what the
+      // guest gets back — that is what Stripe moves and what lands on their
+      // statement — so the parts are derived from it and always sum back to it.
+      //
+      // Prorating against the ORIGINAL charge looks right and quietly drifts:
+      // each partial rounds up independently, so draining a $109.20 charge a
+      // dollar at a time returned 36c more tax than was ever collected. Prorate
+      // against what is still unrefunded instead, and cap at it — then the last
+      // refund returns exactly the remaining tax and the books close on zero
+      // however many partials it took.
+      const chargeTotal = payment.amount_cents || 0;
+      const chargeTax = payment.tax_cents ?? 0;
+      const remainingTotal = chargeTotal - sumRows[0].already_refunded;
+      const remainingTax = Math.max(0, chargeTax - sumRows[0].tax_already_refunded);
+      const refundTax =
+        remainingTotal > 0
+          ? Math.min(remainingTax, Math.round((amount * remainingTax) / remainingTotal))
+          : 0;
+      const refundSubtotal = amount - refundTax;
+
       if (payment.method === 'stripe') {
         if (!payment.stripe_payment_intent_id) {
           return { code: 422, body: { error: 'This payment has no Stripe reference.' } };
@@ -463,21 +498,26 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
         // way, so exactly one audit row survives, annotated with the actor.
         await client.query(
           `INSERT INTO parking_payments
-             (session_id, type, purpose, method, amount_cents, status, stripe_refund_id,
+             (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
+              status, stripe_refund_id,
               stripe_payment_intent_id, refunded_payment_id, created_by, note)
-           VALUES ($1,'refund','refund','stripe',$2,'succeeded',$3,$4,$5,$6,$7)
+           VALUES ($1,'refund','refund','stripe',$2,$3,$4,'succeeded',$5,$6,$7,$8,$9)
            ON CONFLICT (stripe_refund_id) DO UPDATE
              SET created_by = EXCLUDED.created_by, note = EXCLUDED.note,
                  refunded_payment_id = EXCLUDED.refunded_payment_id, updated_at = now()`,
-          [id, amount, refund.id, payment.stripe_payment_intent_id, paymentId, req.user.id, reason],
+          [
+            id, amount, refundSubtotal, refundTax, refund.id,
+            payment.stripe_payment_intent_id, paymentId, req.user.id, reason,
+          ],
         );
       } else {
         // Desk/cash refund: recorded-only; the money changes hands at the desk.
         await client.query(
           `INSERT INTO parking_payments
-             (session_id, type, purpose, method, amount_cents, status, refunded_payment_id, created_by, note)
-           VALUES ($1,'refund','refund',$2,$3,'succeeded',$4,$5,$6)`,
-          [id, payment.method, amount, paymentId, req.user.id, reason],
+             (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
+              status, refunded_payment_id, created_by, note)
+           VALUES ($1,'refund','refund',$2,$3,$4,$5,'succeeded',$6,$7,$8)`,
+          [id, payment.method, amount, refundSubtotal, refundTax, paymentId, req.user.id, reason],
         );
       }
       return { code: 201, body: { ok: true, refunded_cents: amount, method: payment.method } };

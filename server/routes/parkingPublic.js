@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
-import { getStripe, publicBaseUrl } from '../lib/stripe.js';
+import { getStripe, publicBaseUrl, stripeLineAmount } from '../lib/stripe.js';
 import {
-  priceCents,
+  priceBreakdown,
   durationHours,
   durationLabel,
   generateConfirmationCode,
@@ -29,7 +29,7 @@ async function parkingSettings() {
     // something wrong.
     `SELECT COALESCE(NULLIF(parking_brand_name, ''), 'Guest Parking') AS brand_name,
             parking_daily_cents, parking_lots,
-            parking_expiring_soon_minutes
+            parking_expiring_soon_minutes, parking_tax_bps
        FROM settings WHERE id = 1`,
   );
   return rows[0];
@@ -46,6 +46,9 @@ router.get('/public/parking-config', async (req, res, next) => {
       daily_cents: rateCents,
       standard_daily_cents: standardCents,
       promo, // null unless a promo is running; drives the banner
+      // The form quotes the full amount up front — a guest who sees $6.50 here
+      // and $7.80 on Stripe's page has been surprised at the worst moment.
+      tax_bps: s.parking_tax_bps,
       lots: s.parking_lots,
     });
   } catch (err) {
@@ -111,13 +114,21 @@ router.post(
       const s = await parkingSettings();
 
       const { rateCents } = await activeDailyRate(s.parking_daily_cents);
-      const amount = priceCents(c.rate_type, c.quantity, { parking_daily_cents: rateCents });
-      if (amount === null) {
+      // Tax applies to the rate actually in force, so a promo is never taxed at
+      // the standard rate.
+      const price = priceBreakdown(
+        c.rate_type,
+        c.quantity,
+        { parking_daily_cents: rateCents },
+        s.parking_tax_bps,
+      );
+      if (price === null) {
         return res.status(422).json({
           error: 'Please fix the highlighted fields.',
           fields: { quantity: 'Choose a valid duration.' },
         });
       }
+      const amount = price.total;
       const lot = s.parking_lots.includes(c.lot) ? c.lot : null;
 
       // Guard against paying twice for the same car. A guest who loses their
@@ -163,15 +174,17 @@ router.post(
         );
         const { rows: payRows } = await client.query(
           `INSERT INTO parking_payments
-             (session_id, type, purpose, method, amount_cents, rate_type, quantity, status)
-           VALUES ($1,'charge','initial','stripe',$2,$3,$4,'pending')
+             (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
+              rate_type, quantity, status)
+           VALUES ($1,'charge','initial','stripe',$2,$3,$4,$5,$6,'pending')
            RETURNING id`,
-          [session.id, amount, c.rate_type, c.quantity],
+          [session.id, price.total, price.subtotal, price.tax, c.rate_type, c.quantity],
         );
         return { session, paymentId: payRows[0].id };
       });
 
       const base = publicBaseUrl();
+      const line = stripeLineAmount(price);
       let checkout;
       try {
         checkout = await getStripe().checkout.sessions.create({
@@ -181,11 +194,12 @@ router.post(
               quantity: 1,
               price_data: {
                 currency: 'usd',
-                unit_amount: amount,
+                unit_amount: line.unitAmount,
                 product_data: {
                   name: `${s.brand_name} — Guest parking, ${durationLabel(c.rate_type, c.quantity)} (${c.plate})`,
                 },
               },
+              ...(line.taxRates ? { tax_rates: line.taxRates } : {}),
             },
           ],
           metadata: {
@@ -298,10 +312,10 @@ router.post(
       const quantity = Number(req.body?.quantity);
       const s = await parkingSettings();
       const { rateCents } = await activeDailyRate(s.parking_daily_cents);
-      const amount = rate_type
-        ? priceCents(rate_type, quantity, { parking_daily_cents: rateCents })
+      const price = rate_type
+        ? priceBreakdown(rate_type, quantity, { parking_daily_cents: rateCents }, s.parking_tax_bps)
         : null;
-      if (amount === null) {
+      if (price === null) {
         return res.status(422).json({ error: 'Choose a valid extension duration.' });
       }
 
@@ -317,14 +331,16 @@ router.post(
 
       const { rows: payRows } = await query(
         `INSERT INTO parking_payments
-           (session_id, type, purpose, method, amount_cents, rate_type, quantity, status)
-         VALUES ($1,'charge','extension','stripe',$2,$3,$4,'pending')
+           (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
+            rate_type, quantity, status)
+         VALUES ($1,'charge','extension','stripe',$2,$3,$4,$5,$6,'pending')
          RETURNING id`,
-        [session.id, amount, rate_type, quantity],
+        [session.id, price.total, price.subtotal, price.tax, rate_type, quantity],
       );
       const paymentId = payRows[0].id;
 
       const base = publicBaseUrl();
+      const line = stripeLineAmount(price);
       let checkout;
       try {
         checkout = await getStripe().checkout.sessions.create({
@@ -334,11 +350,12 @@ router.post(
               quantity: 1,
               price_data: {
                 currency: 'usd',
-                unit_amount: amount,
+                unit_amount: line.unitAmount,
                 product_data: {
                   name: `${s.brand_name} — Parking extension, ${durationLabel(rate_type, quantity)} (${session.plate})`,
                 },
               },
+              ...(line.taxRates ? { tax_rates: line.taxRates } : {}),
             },
           ],
           metadata: { parking_session_id: String(session.id), payment_id: String(paymentId) },

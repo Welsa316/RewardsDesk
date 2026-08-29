@@ -8,6 +8,7 @@ const props = defineProps({
   rates: { type: Object, required: true }, // { daily_cents }
   // The pre-promo rate, shown struck through when a promo is running.
   standardCents: { type: Number, default: 0 },
+  taxBps: { type: Number, default: 0 },
   modelValue: { type: Object, required: true }, // { rate_type, quantity }
 });
 const emit = defineEmits(['update:modelValue']);
@@ -37,7 +38,15 @@ function setQuantity(n) {
 const QUICK_PICKS = [1, 2, 3, 7];
 const quickPicks = computed(() => QUICK_PICKS.filter((n) => n <= maxQty.value));
 
-const totalCents = computed(() => quantity.value * props.rates.daily_cents);
+const subtotalCents = computed(() => quantity.value * props.rates.daily_cents);
+// Mirrors the server's taxCents exactly — basis points, rounded half up on the
+// tax. The server re-derives it, so this is display only and can never be the
+// figure charged; it exists so the guest sees the real total before Stripe does.
+const taxCents = computed(() => {
+  const bps = Number(props.taxBps) || 0;
+  return bps > 0 ? Math.round((subtotalCents.value * bps) / 10000) : 0;
+});
+const totalCents = computed(() => subtotalCents.value + taxCents.value);
 const unitLabel = computed(() => (quantity.value === 1 ? 'day' : 'days'));
 </script>
 
@@ -64,6 +73,10 @@ const unitLabel = computed(() => (quantity.value === 1 ? 'day' : 'days'));
       <div class="text-center">
         <p class="font-serif text-2xl text-ink">{{ quantity }} {{ unitLabel }}</p>
         <p class="text-sm text-slate-warm">
+          <template v-if="taxCents > 0">
+            <span class="text-slate-warm">{{ formatMoney(subtotalCents) }} + {{ formatMoney(taxCents) }} tax</span>
+            <br />
+          </template>
           Total <span class="font-semibold text-ink">{{ formatMoney(totalCents) }}</span>
         </p>
       </div>
