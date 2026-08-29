@@ -27,20 +27,27 @@ router.use(express.urlencoded({ extended: false, limit: '32kb' }));
  * error, and there is nothing a guest gains from that. Failures reply with
  * something useful instead.
  */
-router.post('/sms/twilio', smsInboundPerMinute, async (req, res) => {
-  // Signature first: without it, anyone who finds this URL can make the app
-  // hand out payment links, or flood it.
+/**
+ * Signature check, as middleware so it runs BEFORE the rate limiter.
+ *
+ * The limiter keys on the From number, so if it ran first anyone could POST
+ * forged requests carrying a guest's number and burn that guest's quota
+ * without ever holding a valid signature. Verifying first means only messages
+ * Twilio actually sent can consume anyone's allowance.
+ */
+function requireTwilioSignature(req, res, next) {
   const ok = verifyTwilioSignature({
     authToken: process.env.TWILIO_AUTH_TOKEN,
     signature: req.get('x-twilio-signature'),
     url: signedUrlFor(req, publicBaseUrl()),
     params: req.body,
   });
-  if (!ok) {
-    // 403 with no body — a forged request gets nothing back.
-    return res.status(403).type('text/plain').send('Invalid signature');
-  }
+  // 403 with no body — a forged request gets nothing back.
+  if (!ok) return res.status(403).type('text/plain').send('Invalid signature');
+  return next();
+}
 
+router.post('/sms/twilio', requireTwilioSignature, smsInboundPerMinute, async (req, res) => {
   const body = String(req.body?.Body || '').trim();
   const keyword = body.toUpperCase().replace(/[^A-Z]/g, '');
   const from = String(req.body?.From || '').trim();
