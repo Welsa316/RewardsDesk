@@ -67,12 +67,23 @@ export const parkingCheckoutPerHour = rateLimit({
 
 // Inbound SMS. Every request arrives from Twilio's own IPs, so an IP key would
 // bucket the whole world together — key on the sending phone number instead.
+// Carriers require HELP to be answered every time, and STOP to always be
+// honoured — throttling either is a compliance failure, not just poor service.
+// They are cheap and self-limiting, so they skip the window entirely.
+const ALWAYS_ANSWER = new Set([
+  'HELP', 'INFO',
+  'STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'START', 'UNSTOP',
+]);
+
 export const smsInboundPerMinute = rateLimit({
   ...common,
   windowMs: 60 * 1000,
   max: 6,
   keyGenerator: (req) => `sms:${String(req.body?.From || req.ip || '').slice(-16)}`,
-  // A rate-limited sender gets silence rather than an error message.
+  skip: (req) =>
+    ALWAYS_ANSWER.has(String(req.body?.Body || '').trim().toUpperCase().replace(/[^A-Z]/g, '')),
+  // A flooding sender gets silence rather than an error message — an error
+  // would just be one more message back at them.
   handler: (req, res) => res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<Response/>'),
 });
 
