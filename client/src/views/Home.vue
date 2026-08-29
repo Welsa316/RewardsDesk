@@ -17,7 +17,10 @@ const CONTACT_PHONE_TEL = '+15043602990';
 const LOGO = '/logo.png';
 const logoMissing = ref(false);
 
-const brand = ref('MSY Best Parking');
+// Empty until the configured name arrives. Seeding it with a guess meant the
+// header printed one name and then swapped to another a moment later, which
+// reads as the page correcting a mistake.
+const brand = ref('');
 
 onMounted(async () => {
   try {
@@ -34,14 +37,20 @@ onMounted(async () => {
     <header
       class="sticky top-0 z-40 flex items-center gap-3 border-b border-sand/70 bg-warm/90 px-5 py-3.5 backdrop-blur-sm md:px-10"
     >
+      <!-- The mark itself reads "MSY Best Parking", so its alt text is fixed
+           and does not wait on config. The text fallback does use the
+           configured name, and renders nothing until that resolves. The fixed
+           height keeps the header from jumping either way. -->
       <img
         v-if="!logoMissing"
         :src="LOGO"
-        :alt="brand"
+        alt="MSY Best Parking"
         class="h-11 w-auto md:h-14"
         @error="logoMissing = true"
       />
-      <span v-else class="font-serif text-lg text-maroon md:text-xl">{{ brand }}</span>
+      <span v-else class="flex h-11 items-center font-serif text-lg text-maroon md:h-14 md:text-xl">
+        {{ brand }}
+      </span>
     </header>
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-5 py-8 md:px-10 md:py-12">

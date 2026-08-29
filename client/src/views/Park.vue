@@ -12,7 +12,9 @@ import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitel
 
 const route = useRoute();
 
-const brand = ref('Guest Parking');
+// Empty until the configured name arrives, so the header does not print one
+// name and then replace it. The heading reserves its height either way.
+const brand = ref('');
 const rates = ref(null); // { daily_cents }
 const standardCents = ref(0);
 const promo = ref(null); // { name, rate_cents, end_date } while one is running
@@ -134,7 +136,7 @@ async function submit() {
         <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-ink">
           <span class="font-serif text-2xl font-semibold text-white">P</span>
         </div>
-        <h1 class="font-serif text-2xl text-ink">{{ brand }}</h1>
+        <h1 class="flex min-h-8 items-center justify-center font-serif text-2xl text-ink">{{ brand }}</h1>
         <p class="mt-1 text-sm text-slate-warm">Pay for parking in under a minute.</p>
       </header>
 
