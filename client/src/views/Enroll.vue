@@ -2,6 +2,7 @@
 import { reactive, ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { intake } from '../api';
+import PromoStrip from '../components/PromoStrip.vue';
 import AddressFields from '../components/AddressFields.vue';
 
 const route = useRoute();
@@ -104,6 +105,7 @@ async function submit() {
 <template>
   <div class="min-h-screen bg-warm px-4 py-8">
     <div class="mx-auto w-full max-w-md">
+      <PromoStrip />
       <!-- Success -->
       <div v-if="status === 'success'" class="card p-8 text-center">
         <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">

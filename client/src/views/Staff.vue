@@ -226,6 +226,12 @@ async function resetPassword() {
           >
             Reset password
           </button>
+          <!-- Deactivating the account you are signed in with would lock you out
+               of the app, so it is blocked on the server too. Say so rather than
+               leaving a control that is simply absent. -->
+          <span v-if="auth.isAdmin && u.id === auth.user?.id" class="text-sm text-slate-warm">
+            Sign in as another admin to deactivate this account
+          </span>
           <button
             v-if="auth.isAdmin && u.id !== auth.user?.id"
             class="btn !py-1.5 text-sm"

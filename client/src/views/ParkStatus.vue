@@ -4,6 +4,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { parkingPublic } from '../api';
+import PromoStrip from '../components/PromoStrip.vue';
 import ParkingStatusPill from '../components/ParkingStatusPill.vue';
 import DurationPicker from '../components/DurationPicker.vue';
 import { formatMoney, formatDateTime, formatCountdown } from '../utils/format';
@@ -174,6 +175,7 @@ async function submitExtend() {
 <template>
   <div class="min-h-screen bg-warm px-4 py-8">
     <div class="mx-auto w-full max-w-md">
+      <PromoStrip />
       <!-- Not found -->
       <div v-if="notFound" class="card p-8 text-center">
         <h1 class="font-serif text-2xl text-ink">Link not found</h1>
