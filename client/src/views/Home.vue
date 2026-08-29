@@ -34,17 +34,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="relative flex min-h-screen flex-col bg-warm">
-    <!-- The skyline sits behind the header and the two cards, then dissolves
-         into the page colour so everything below it reads normally. It is
-         decorative, so it is a background rather than an <img> with alt text. -->
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-[560px] overflow-hidden md:h-[620px]" aria-hidden="true">
+  <!-- No background colour on the wrapper: body carries bg-warm as the base,
+       and the fixed layer below paints over it. Giving this div a background
+       would hide the skyline entirely. -->
+  <div class="relative flex min-h-screen flex-col">
+    <!-- Skyline behind the whole screen, fixed so it stays put while the page
+         scrolls over it. Decorative, so it is a CSS background rather than an
+         <img> needing alt text. The scrim is what makes type legible: heavier
+         at the top where the wordmark sits and at the bottom where the footer
+         does, lighter through the middle so the illustration still reads. -->
+    <div class="pointer-events-none fixed inset-0 -z-10" aria-hidden="true">
       <div class="absolute inset-0 bg-[url('/skyline.jpg')] bg-cover bg-center"></div>
-      <!-- Light wash at the very top so the maroon wordmark always has ground
-           under it, whichever part of the illustration lands there. -->
-      <div class="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-warm/85 to-transparent"></div>
-      <!-- And a fade out at the bottom, so there is no hard seam. -->
-      <div class="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent to-warm"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-warm/70 via-warm/25 to-warm/90"></div>
     </div>
 
     <header class="relative z-10 flex items-center gap-3 px-5 py-3.5 md:px-10">
@@ -68,7 +69,7 @@ onMounted(async () => {
              legible whatever is behind it, with a light rim to catch the edge. -->
         <RouterLink
           to="/park"
-          class="group relative flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-7 shadow-xl ring-1 ring-black/5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon/40 md:col-span-8 md:p-10"
+          class="glass glass-interactive glass-tinted group relative flex flex-col overflow-hidden rounded-3xl p-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon/40 md:col-span-8 md:p-10"
         >
           <span
             class="relative z-10 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-maroon text-white shadow-lg"
@@ -97,7 +98,7 @@ onMounted(async () => {
 
         <RouterLink
           to="/enroll"
-          class="group relative flex flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-7 shadow-xl ring-1 ring-black/5 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30 md:col-span-4"
+          class="glass glass-interactive group relative flex flex-col overflow-hidden rounded-3xl p-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30 md:col-span-4"
         >
           <span
             class="relative z-10 mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-white shadow-lg"
@@ -125,7 +126,7 @@ onMounted(async () => {
         </RouterLink>
 
         <section
-          class="flex flex-col items-center justify-between gap-4 rounded-2xl border border-sand bg-white/70 p-6 text-center md:col-span-12 md:flex-row md:text-left"
+          class="glass flex flex-col items-center justify-between gap-4 rounded-2xl p-6 text-center md:col-span-12 md:flex-row md:text-left"
         >
           <div class="flex items-center gap-4">
             <span

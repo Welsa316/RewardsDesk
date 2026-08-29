@@ -46,6 +46,8 @@ const taxCents = computed(() => {
   const bps = Number(props.taxBps) || 0;
   return bps > 0 ? Math.round((subtotalCents.value * bps) / 10000) : 0;
 });
+// Kept for the "+ tax" note only. The figure charged is always recomputed on
+// the server, and the tax itself is shown on Stripe's page rather than here.
 const totalCents = computed(() => subtotalCents.value + taxCents.value);
 const unitLabel = computed(() => (quantity.value === 1 ? 'day' : 'days'));
 </script>
@@ -73,11 +75,10 @@ const unitLabel = computed(() => (quantity.value === 1 ? 'day' : 'days'));
       <div class="text-center">
         <p class="font-serif text-2xl text-ink">{{ quantity }} {{ unitLabel }}</p>
         <p class="text-sm text-slate-warm">
+          Total <span class="font-semibold text-ink">{{ formatMoney(subtotalCents) }}</span>
           <template v-if="taxCents > 0">
-            <span class="text-slate-warm">{{ formatMoney(subtotalCents) }} + {{ formatMoney(taxCents) }} tax</span>
-            <br />
+            <span class="text-slate-warm"> + tax</span>
           </template>
-          Total <span class="font-semibold text-ink">{{ formatMoney(totalCents) }}</span>
         </p>
       </div>
       <button

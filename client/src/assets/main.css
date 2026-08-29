@@ -64,6 +64,76 @@
   }
 }
 
+/*
+ * Liquid Glass, translated to the web.
+ *
+ * Apple's system (iOS 26) is SwiftUI/UIKit only — .glassEffect(), UIGlassEffect,
+ * GlassEffectContainer — so there is no API to call from a browser. What follows
+ * is its stated material behaviour rebuilt in CSS: it blurs what sits behind,
+ * amplifies the colour it picks up, carries a specular highlight along its top
+ * edge, and responds to pointer interaction.
+ *
+ * The saturation boost is what separates this from ordinary frosted blur —
+ * without it the skyline's warmth turns grey behind the card and the whole thing
+ * reads as plastic. The highlight is what makes the edge look like glass rather
+ * than a 1px border.
+ */
+.glass {
+  position: relative;
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 18px 40px -12px rgba(15, 27, 45, 0.28),
+    inset 0 -1px 0 0 rgba(15, 27, 45, 0.06);
+  transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Specular edge — brightest at the top, gone by a third of the way down. */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 32%,
+    transparent 60%
+  );
+}
+
+/* .interactive() — the material brightens and lifts under a pointer. */
+.glass-interactive:hover {
+  background: rgba(255, 255, 255, 0.74);
+  transform: translateY(-4px);
+  box-shadow:
+    0 26px 54px -14px rgba(15, 27, 45, 0.34),
+    inset 0 -1px 0 0 rgba(15, 27, 45, 0.06);
+}
+.glass-interactive:active {
+  transform: translateY(-1px);
+}
+
+/* .tint() — a faint brand wash on the one card that should lead. */
+.glass-tinted {
+  background: rgba(255, 246, 247, 0.62);
+}
+.glass-tinted.glass-interactive:hover {
+  background: rgba(255, 246, 247, 0.76);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .glass-interactive:hover,
+  .glass-interactive:active {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* Subtle route transition */
 .fade-enter-active,
 .fade-leave-active {

@@ -156,5 +156,38 @@ for (let y = 0; y < h; y++) {
 }
 
 writeFileSync(OUT, encodePng(w, h, rgba));
+
+// Also emit the mark on its own. Small square placements — the parking page's
+// header badge, an app icon — need the winged P without the wordmark beside it,
+// and cropping it here keeps the two in sync whenever the logo is regenerated.
+// The split is found rather than hardcoded: the widest run of fully transparent
+// columns is the gap the designer left between mark and type.
+{
+  const colHasInk = [];
+  for (let x = 0; x < w; x++) {
+    let ink = false;
+    for (let y = 0; y < h && !ink; y += 2) if (rgba[(y * w + x) * 4 + 3] > 25) ink = true;
+    colHasInk.push(ink);
+  }
+  let gapStart = -1, bestStart = -1, bestLen = 0;
+  for (let x = 0; x <= w; x++) {
+    if (x < w && !colHasInk[x]) { if (gapStart < 0) gapStart = x; }
+    else if (gapStart >= 0) {
+      const len = x - gapStart;
+      // Ignore the outer margins; we want an interior gap.
+      if (gapStart > 0 && x < w && len > bestLen) { bestLen = len; bestStart = gapStart; }
+      gapStart = -1;
+    }
+  }
+  if (bestStart > 0) {
+    const mw = bestStart;
+    const mark = Buffer.alloc(mw * h * 4);
+    for (let y = 0; y < h; y++) {
+      rgba.copy(mark, y * mw * 4, (y * w) * 4, (y * w + mw) * 4);
+    }
+    writeFileSync(resolve(pub, 'logo-mark.png'), encodePng(mw, h, mark));
+    console.log(`  mark only: ${mw}x${h} -> logo-mark.png`);
+  }
+}
 const hex = '#' + brand.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
 console.log(`  ${width}x${height} -> ${w}x${h}   brand colour ${hex}   transparent background`);

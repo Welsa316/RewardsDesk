@@ -20,6 +20,7 @@ const standardCents = ref(0);
 const taxBps = ref(0);
 const promo = ref(null); // { name, rate_cents, end_date } while one is running
 const loadError = ref(false);
+const markMissing = ref(false);
 const submitting = ref(false);
 const formError = ref('');
 const fieldErrors = reactive({});
@@ -135,7 +136,17 @@ async function submit() {
   <div class="min-h-screen bg-warm px-4 py-8">
     <div class="mx-auto w-full max-w-md">
       <header class="mb-6 text-center">
-        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-ink">
+        <!-- The real mark, cropped from the logo by scripts/prepare-logo.js so
+             the two can never drift. Falls back to the letterform if the file
+             is missing, so the header is never empty. -->
+        <img
+          v-if="!markMissing"
+          src="/logo-mark.png"
+          alt=""
+          class="mx-auto mb-3 h-14 w-auto"
+          @error="markMissing = true"
+        />
+        <div v-else class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-ink">
           <span class="font-serif text-2xl font-semibold text-white">P</span>
         </div>
         <h1 class="flex min-h-8 items-center justify-center font-serif text-2xl text-ink">{{ brand }}</h1>
