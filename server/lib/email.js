@@ -39,7 +39,8 @@ export async function sendEmail({ to, subject, html }) {
     if (!to) return false;
 
     if (skipping()) {
-      console.log(`  ✉ [SKIP_EMAIL] would send "${subject}" to ${to}`);
+      const rt = (process.env.EMAIL_REPLY_TO || '').trim() || ADMIN_ALERT_TO;
+      console.log(`  ✉ [SKIP_EMAIL] would send "${subject}" to ${to} (reply-to ${rt})`);
       return true;
     }
     if (!emailEnabled()) {
@@ -47,11 +48,19 @@ export async function sendEmail({ to, subject, html }) {
       return false;
     }
 
+    // Reply-To matters more than it looks. EMAIL_FROM only has to sit on a
+    // domain verified in Resend — the mailbox behind it need not exist for
+    // sending to work. But a guest who hits Reply on a parking receipt then
+    // gets a bounce, or silence. Pointing replies at an inbox someone actually
+    // reads keeps the branded sender without that dead end.
+    const replyTo = (process.env.EMAIL_REPLY_TO || '').trim() || ADMIN_ALERT_TO;
+
     const { error } = await resend().emails.send({
       from: process.env.EMAIL_FROM,
       to,
       subject,
       html,
+      ...(replyTo ? { replyTo } : {}),
     });
     if (error) {
       console.error(`  ✉ failed to send "${subject}" to ${to}:`, error.message || error);

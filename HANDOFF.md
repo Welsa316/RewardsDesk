@@ -24,6 +24,10 @@ Everything the hotel needs to own and operate the app: rewards + guest parking.
 | `ADMIN_FORCE_RESET` | set to `true` for one deploy to reset a lost owner password, then remove |
 | `STRIPE_SECRET_KEY` | `sk_live_…` (test: `sk_test_…`) |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` from the **dashboard webhook endpoint** (see below) |
+| `STRIPE_TAX_RATE_ID` | `txr_…` — itemises tax on Stripe's checkout page and receipt. One per mode: a live id is rejected by a test key |
+| `RESEND_API_KEY` | `re_…` for the notification emails |
+| `EMAIL_FROM` | e.g. `MSY Best Parking <office@msybestparking.com>` — the domain must be verified in Resend; the mailbox itself need not exist |
+| `EMAIL_REPLY_TO` | Optional. A mailbox someone actually reads. Defaults to the owner alert address, so replies never bounce |
 | `PUBLIC_BASE_URL` | `https://<your-domain>` — used in Stripe success/cancel URLs |
 | `COOKIE_DOMAIN` | only if using a custom domain for the app |
 
