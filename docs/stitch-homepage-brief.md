@@ -46,7 +46,7 @@ there is no promo, which is most of the time.
 Use exactly these colours:
 
 - Deep navy `#0F1B2D` — headers, primary surfaces, body text
-- Terracotta `#C65D3E` — the single accent, used for the primary action
+- Brand maroon `#680018` — the single accent, used for the primary action
 - Warm off-white `#FBF8F3` — page background
 - Sand `#E8DDD0` — borders and dividers
 - Warm slate `#4A5568` — secondary text
@@ -61,7 +61,9 @@ only.
 
 - **No hotel chain logo, wordmark, or brand name anywhere.** The parking
   product is deliberately unbranded; guests must not see a chain identity.
-  Use the text "MSY Best Parking" as the wordmark. Do not invent a logo.
+  Use the supplied MSY Best Parking logo as the wordmark — a horizontal
+  lockup, winged "P" mark to the left of two lines of type, in the maroon
+  above. Do not invent a different logo.
 - The footer must carry this line verbatim, in small text:
   *"Each BWH Hotels branded hotel is independently owned and operated."*
 - Footer also needs small links: Text service, Terms of Service, Privacy Policy.
@@ -83,7 +85,7 @@ only.
 - Card 2 body: `Sign up for the hotel's loyalty program. Fill in your details here and the front desk finishes it at check-in.`
 - Help heading: `Need help?`
 - Phone: `(504) 360-2990`
-- Email: `aks1321@gmail.com`
+- Email: `bwpairport189@gmail.com`
 
 ## Deliverables
 

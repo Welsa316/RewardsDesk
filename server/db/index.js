@@ -36,6 +36,42 @@ pool.on('error', (err) => {
 
 export const query = (text, params) => pool.query(text, params);
 
+// Postgres transient/connection failures. Anything else is a real error and
+// retrying it would just delay the report.
+const TRANSIENT = new Set([
+  'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN', 'EPIPE',
+  '57P03', // cannot_connect_now — server is starting up
+  '08006', '08001', '08004', // connection failures
+  '53300', // too_many_connections
+]);
+
+/**
+ * Blocks until Postgres accepts a query, or gives up.
+ *
+ * On a fresh deploy the app container can start before the database is
+ * accepting connections — and after a database restart it definitely does.
+ * Without this, the very first query throws, the start command exits non-zero,
+ * and the platform reports a failed deployment even though the retry seconds
+ * later succeeds. That produces "deploy failed" alerts for a service that is
+ * healthy, which trains everyone to ignore the alerts.
+ */
+export async function waitForDatabase({ attempts = 12, delayMs = 2000 } = {}) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await pool.query('SELECT 1');
+      if (i > 1) console.log(`  ✓ database reachable after ${i} attempts`);
+      return;
+    } catch (err) {
+      const code = err?.code;
+      if (!TRANSIENT.has(code) || i === attempts) throw err;
+      console.warn(
+        `  • database not ready (${code}), retrying in ${delayMs}ms — attempt ${i}/${attempts}`,
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
 // Runs `fn` inside a transaction, passing it a dedicated client.
 // Commits on success, rolls back on any thrown error.
 export async function withTransaction(fn) {

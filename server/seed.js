@@ -1,8 +1,9 @@
 import './env.js';
 import bcrypt from 'bcryptjs';
-import { pool } from './db/index.js';
+import { pool, waitForDatabase } from './db/index.js';
 
 async function seed() {
+  await waitForDatabase();
   // Always ensure the singleton settings row exists (column defaults fill the rest).
   await pool.query('INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;');
   console.log('  ✓ settings row ensured');

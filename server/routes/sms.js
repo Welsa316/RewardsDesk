@@ -14,7 +14,7 @@ import { smsInboundPerMinute } from '../middleware/rateLimit.js';
 const router = Router();
 
 const HELP_TEXT =
-  'Pay to Park: text PARK for a link to pay for parking. Msg & data rates may apply. Reply STOP to opt out. Help: aks1321@gmail.com';
+  'Pay to Park: text PARK for a link to pay for parking. Msg & data rates may apply. Reply STOP to opt out. Help: bwpairport189@gmail.com';
 
 // Twilio posts form-encoded, so this router parses its own body rather than
 // relying on the global JSON parser.

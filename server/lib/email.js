@@ -8,7 +8,7 @@ import { Resend } from 'resend';
 // 3. SKIP_EMAIL=true logs instead of sending, so local work and tests never
 //    hit the API or mail a real person.
 
-const ADMIN_ALERT_TO = 'aks1321@gmail.com';
+const ADMIN_ALERT_TO = 'bwpairport189@gmail.com';
 
 let client = null;
 

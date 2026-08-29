@@ -8,7 +8,7 @@ import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import PublicFooter from '../components/PublicFooter.vue';
 
-const CONTACT_EMAIL = 'aks1321@gmail.com';
+const CONTACT_EMAIL = 'bwpairport189@gmail.com';
 const signMissing = ref(false);
 // Bound rather than literal: files in public/ are served as-is at runtime, and
 // a literal src would make the build fail until the image is dropped in.

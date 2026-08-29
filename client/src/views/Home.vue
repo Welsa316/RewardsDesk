@@ -8,7 +8,7 @@ import { parkingPublic } from '../api';
 import PublicFooter from '../components/PublicFooter.vue';
 import PromoStrip from '../components/PromoStrip.vue';
 
-const CONTACT_EMAIL = 'aks1321@gmail.com';
+const CONTACT_EMAIL = 'bwpairport189@gmail.com';
 const CONTACT_PHONE_DISPLAY = '(504) 360-2990';
 const CONTACT_PHONE_TEL = '+15043602990';
 

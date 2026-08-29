@@ -2,7 +2,7 @@
 import { RouterLink } from 'vue-router';
 import PublicFooter from '../components/PublicFooter.vue';
 
-const CONTACT_EMAIL = 'aks1321@gmail.com';
+const CONTACT_EMAIL = 'bwpairport189@gmail.com';
 </script>
 
 <template>

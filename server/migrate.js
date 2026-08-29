@@ -2,7 +2,7 @@ import './env.js';
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { pool } from './db/index.js';
+import { pool, waitForDatabase } from './db/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = resolve(here, 'migrations');
@@ -22,6 +22,10 @@ async function appliedMigrations() {
 }
 
 async function run() {
+  // The container can start before Postgres is accepting connections. Without
+  // this the first query throws, the start command exits non-zero, and the
+  // deploy is reported failed even though it would succeed moments later.
+  await waitForDatabase();
   await ensureMigrationsTable();
   const applied = await appliedMigrations();
 
