@@ -45,7 +45,7 @@ onMounted(async () => {
          does, lighter through the middle so the illustration still reads. -->
     <div class="pointer-events-none fixed inset-0 -z-10" aria-hidden="true">
       <div class="absolute inset-0 bg-[url('/skyline.jpg')] bg-cover bg-center"></div>
-      <div class="absolute inset-0 bg-gradient-to-b from-warm/70 via-warm/25 to-warm/90"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-warm/35 via-transparent to-warm/45"></div>
     </div>
 
     <header class="relative z-10 flex items-center gap-3 px-5 py-3.5 md:px-10">
@@ -69,7 +69,7 @@ onMounted(async () => {
              legible whatever is behind it, with a light rim to catch the edge. -->
         <RouterLink
           to="/park"
-          class="glass glass-interactive glass-tinted group relative flex flex-col overflow-hidden rounded-3xl p-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon/40 md:col-span-8 md:p-10"
+          class="glass glass-hoverable glass-tinted group relative flex flex-col overflow-hidden rounded-3xl p-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon/40 md:col-span-8 md:p-10"
         >
           <span
             class="relative z-10 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-maroon text-white shadow-lg"
@@ -98,7 +98,7 @@ onMounted(async () => {
 
         <RouterLink
           to="/enroll"
-          class="glass glass-interactive group relative flex flex-col overflow-hidden rounded-3xl p-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30 md:col-span-4"
+          class="glass glass-hoverable group relative flex flex-col overflow-hidden rounded-3xl p-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/30 md:col-span-4"
         >
           <span
             class="relative z-10 mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-white shadow-lg"

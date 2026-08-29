@@ -105,32 +105,27 @@
   );
 }
 
-/* .interactive() — the material brightens and lifts under a pointer. */
-.glass-interactive:hover {
-  background: rgba(255, 255, 255, 0.74);
-  transform: translateY(-4px);
-  box-shadow:
-    0 26px 54px -14px rgba(15, 27, 45, 0.34),
-    inset 0 -1px 0 0 rgba(15, 27, 45, 0.06);
-}
-.glass-interactive:active {
-  transform: translateY(-1px);
+/*
+ * Pointer feedback without motion. The card does not lift or move — a still
+ * cue is enough to say "this is clickable", and a lifting card competes with
+ * the illustration behind it.
+ */
+.glass-hoverable:hover {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(255, 255, 255, 0.8);
 }
 
 /* .tint() — a faint brand wash on the one card that should lead. */
 .glass-tinted {
   background: rgba(255, 246, 247, 0.62);
 }
-.glass-tinted.glass-interactive:hover {
-  background: rgba(255, 246, 247, 0.76);
+.glass-tinted.glass-hoverable:hover {
+  background: rgba(255, 246, 247, 0.8);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glass,
-  .glass-interactive:hover,
-  .glass-interactive:active {
+  .glass {
     transition: none;
-    transform: none;
   }
 }
 
