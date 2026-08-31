@@ -305,7 +305,7 @@ async function submitExtend() {
             </button>
             <template v-else>
               <p class="label">Add more time</p>
-              <DurationPicker v-model="extendDuration" :rates="data.rates" />
+              <DurationPicker v-model="extendDuration" :rates="data.rates" :tax-bps="data.tax_bps || 0" />
               <p v-if="extendError" role="alert" class="mt-3 text-sm text-red-700">{{ extendError }}</p>
               <div class="mt-4 flex gap-3">
                 <button type="button" class="btn btn-ghost flex-1" @click="extendOpen = false">Cancel</button>

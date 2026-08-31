@@ -54,27 +54,82 @@ export async function applyCompletedCheckout(cs) {
     // CLI replays, and reconciliation all land here and no-op.
     if (!payment || payment.status !== 'pending') return false;
 
-    // amount_cents is the tax-inclusive total, and Stripe's amount_total is too
-    // (it adds the tax rate to the pre-tax line we send). So this still compares
-    // like with like — and now doubles as the alarm for the app's tax rate and
-    // Stripe's tax rate having drifted apart, which would otherwise be invisible
-    // until a return was filed.
+    // Nothing is owed until Stripe says the money is actually there. Delayed
+    // payment methods complete the Checkout Session first and settle later, so
+    // 'completed' alone is not payment — without this a bank debit that never
+    // clears still opens the gate.
+    if (cs.payment_status && cs.payment_status !== 'paid') return false;
+
+    // Stripe is the authority on what the card was actually charged. Ours is a
+    // prediction: it is wrong whenever STRIPE_TAX_RATE_ID and the tax rate in
+    // Settings disagree. Warning and then storing our own number put a figure
+    // in the ledger and on the guest's receipt that nobody was ever charged,
+    // so record what Stripe moved and use its own tax split to divide it.
+    let amountCents = payment.amount_cents;
+    let subtotalCents = payment.subtotal_cents;
+    let taxCents = payment.tax_cents;
     if (Number.isInteger(cs.amount_total) && cs.amount_total !== payment.amount_cents) {
-      console.warn(
+      console.error(
         `⚠ parking: amount mismatch on payment ${payment.id} — ours ${payment.amount_cents}, ` +
-          `Stripe ${cs.amount_total}. If tax is configured, check STRIPE_TAX_RATE_ID matches ` +
-          `the parking tax rate in Settings.`,
+          `Stripe ${cs.amount_total}. Recording Stripe's figure. Check STRIPE_TAX_RATE_ID ` +
+          `matches the parking tax rate in Settings.`,
       );
+      amountCents = cs.amount_total;
+      taxCents = Number.isInteger(cs.total_details?.amount_tax)
+        ? cs.total_details.amount_tax
+        : taxCents;
+      subtotalCents = amountCents - (taxCents ?? 0);
     }
 
     await client.query(
       `UPDATE parking_payments
-          SET status='succeeded', stripe_payment_intent_id=$1, receipt_url=$2, updated_at=now()
-        WHERE id=$3`,
-      [piId || null, receiptUrl, payment.id],
+          SET status='succeeded', stripe_payment_intent_id=$1, receipt_url=$2,
+              amount_cents=$3, subtotal_cents=$4, tax_cents=$5, updated_at=now()
+        WHERE id=$6`,
+      [piId || null, receiptUrl, amountCents, subtotalCents, taxCents, payment.id],
     );
 
     const hours = durationHours(payment.rate_type, payment.quantity);
+    let addedTime = false;
+
+    // A guest who taps Pay, goes back, and pays again has two pending sessions
+    // for one car, and both webhooks would activate. The checkout guard cannot
+    // close this on its own — it runs before either payment exists. Refusing
+    // the second activation here turns a silent double charge into one that is
+    // captured, flagged, and refundable, and leaves the guest with the single
+    // session they actually need.
+    if (payment.purpose === 'initial' && payment.disposition === 'pending_payment') {
+      const { rows: liveRows } = await client.query(
+        `SELECT 1 FROM parking_sessions
+          WHERE plate = (SELECT plate FROM parking_sessions WHERE id = $1)
+            AND plate_state IS NOT DISTINCT FROM
+                (SELECT plate_state FROM parking_sessions WHERE id = $1)
+            AND id <> $1
+            AND disposition = 'active'
+            AND paid_through > now()
+          LIMIT 1`,
+        [payment.session_id],
+      );
+      if (liveRows[0]) {
+        console.error(
+          `⚠ parking: payment ${payment.id} paid for a plate that already has an active ` +
+            `session — session ${payment.session_id} not activated. This needs a refund.`,
+        );
+        await client.query(
+          `UPDATE parking_payments
+              SET note = COALESCE(NULLIF(note, '') || ' | ', '') ||
+                         'Duplicate payment — this plate was already parked; needs refund'
+            WHERE id = $1`,
+          [payment.id],
+        );
+        await client.query(
+          `UPDATE parking_sessions SET disposition='canceled', updated_at=now() WHERE id=$1`,
+          [payment.session_id],
+        );
+        return true;
+      }
+    }
+
     if (payment.purpose === 'initial' && payment.disposition === 'pending_payment') {
       // The one and only pending -> active transition.
       await client.query(
@@ -84,8 +139,11 @@ export async function applyCompletedCheckout(cs) {
           WHERE id=$2`,
         [hours, payment.session_id],
       );
-    } else if (payment.purpose === 'extension') {
-      // Never bill dead time; never shorten an active session.
+      addedTime = true;
+    } else if (payment.purpose === 'extension' && payment.disposition === 'active') {
+      // Never bill dead time; never shorten an active session. Requiring
+      // 'active' is what stops time being added to a vehicle the desk has
+      // already checked out, or to a session that was canceled.
       await client.query(
         `UPDATE parking_sessions
             SET paid_through = GREATEST(paid_through, now()) + make_interval(hours => $1),
@@ -93,8 +151,31 @@ export async function applyCompletedCheckout(cs) {
           WHERE id=$2`,
         [hours, payment.session_id],
       );
+      addedTime = true;
     }
-    activated = { sessionId: payment.session_id, amountCents: payment.amount_cents };
+
+    if (!addedTime) {
+      // The money moved but the session could not take the time — an extension
+      // paid after check-out, or an initial payment on a session that is no
+      // longer pending. The ledger must still show the charge, so flag it for
+      // staff to refund rather than mailing the guest a receipt that implies
+      // they bought something.
+      console.error(
+        `⚠ parking: payment ${payment.id} (${payment.purpose}) captured on session ` +
+          `${payment.session_id} in disposition '${payment.disposition}' — no time added. ` +
+          `This needs a refund.`,
+      );
+      await client.query(
+        `UPDATE parking_payments
+            SET note = COALESCE(NULLIF(note, '') || ' | ', '') ||
+                       'Captured but no time added (session was ' || $1 || ') — needs refund'
+          WHERE id = $2`,
+        [payment.disposition, payment.id],
+      );
+      return true;
+    }
+
+    activated = { sessionId: payment.session_id, amountCents };
     return true;
   });
 

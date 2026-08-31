@@ -43,6 +43,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize))
 const selectedId = ref(null);
 const showNew = ref(false);
 const rates = ref(null);
+const taxBps = ref(0);
 
 let loadSeq = 0;
 
@@ -101,7 +102,11 @@ onMounted(async () => {
   load();
   try {
     const { data } = await parkingPublic.config();
+    // tax_bps has to travel with the rate. Without it the desk was told to
+    // collect the pre-tax figure while the server recorded the charge with tax
+    // on top, so the till came up short on every desk sale.
     rates.value = { daily_cents: data.daily_cents };
+    taxBps.value = data.tax_bps || 0;
   } catch {
     // new-session modal will show a rates error if opened
   }
@@ -199,9 +204,10 @@ onMounted(async () => {
       v-if="selectedId"
       :session-id="selectedId"
       :rates="rates"
+      :tax-bps="taxBps"
       @close="selectedId = null"
       @changed="load"
     />
-    <NewParkingSessionModal v-if="showNew" :rates="rates" @close="showNew = false" @created="onCreated" />
+    <NewParkingSessionModal v-if="showNew" :rates="rates" :tax-bps="taxBps" @close="showNew = false" @created="onCreated" />
   </div>
 </template>

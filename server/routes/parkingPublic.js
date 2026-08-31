@@ -151,13 +151,55 @@ router.post(
       );
       if (dupRows[0]) {
         const dup = dupRows[0];
-        const samePhone = dup.phone && c.phone && dup.phone === c.phone;
+        // Compare digits, not strings. "504-360-2990" and "5043602990" are the
+        // same person, and an exact compare told them to see the front desk
+        // about their own car.
+        const digits = (v) => String(v ?? '').replace(/\D/g, '').slice(-10);
+        const samePhone =
+          digits(dup.phone).length === 10 && digits(dup.phone) === digits(c.phone);
+        // Plates are readable from the kerb. Answering "yes, parked, until
+        // 4pm" to anyone who types one turns the payment form into an
+        // occupancy lookup for the whole lot, so the time — like the status
+        // token — is only for someone who can produce the matching phone.
         return res.status(409).json({
-          error: `${c.plate} is already parked here until ${new Date(dup.paid_through).toISOString()}. You don't need to pay again.`,
+          error: samePhone
+            ? `${c.plate} is already parked here until ${new Date(dup.paid_through).toISOString()}. You don't need to pay again.`
+            : `${c.plate} is already covered. If this is your vehicle, open the link from your payment confirmation, or see the front desk.`,
           already_parked: true,
-          paid_through: dup.paid_through,
+          paid_through: samePhone ? dup.paid_through : undefined,
           status_token: samePhone ? dup.status_token : undefined,
         });
+      }
+
+      // Same plate, payment already in flight. Without this the guest who taps
+      // Pay, goes back, and taps Pay again gets a second Checkout Session, and
+      // completing both charges them twice for one car. Hand back the checkout
+      // they already have instead of opening another.
+      const { rows: openRows } = await query(
+        `SELECT p.stripe_checkout_session_id
+           FROM parking_sessions ps
+           JOIN parking_payments p ON p.session_id = ps.id
+          WHERE ps.plate = $1
+            AND (ps.plate_state IS NULL OR $2::char(2) IS NULL OR ps.plate_state = $2)
+            AND ps.disposition = 'pending_payment'
+            AND ps.created_at > now() - interval '1 hour'
+            AND p.purpose = 'initial' AND p.status = 'pending'
+            AND p.stripe_checkout_session_id IS NOT NULL
+          ORDER BY p.created_at DESC LIMIT 1`,
+        [c.plate, c.plate_state],
+      );
+      if (openRows[0]) {
+        try {
+          const open = await getStripe().checkout.sessions.retrieve(
+            openRows[0].stripe_checkout_session_id,
+          );
+          if (open.status === 'open' && open.url) {
+            return res.status(200).json({ checkout_url: open.url });
+          }
+        } catch {
+          // Stripe unreachable or the session is gone — fall through and make
+          // a new one rather than blocking a guest from paying.
+        }
       }
 
       // Rows first (committed), then the Stripe network call — a failed call
@@ -291,7 +333,11 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
       server_now: new Date().toISOString(), // lets the countdown ignore client clock skew
       net_paid_cents: payRows[0].net_paid_cents,
       receipt_url: payRows[0].receipt_url,
+      // tax_bps travels with the rate so the extend picker quotes the same
+      // total the payment page does. Without it the guest picked "2 more days",
+      // saw a pre-tax figure, and Stripe charged more.
       rates: { daily_cents: (await activeDailyRate(s.parking_daily_cents)).rateCents },
+      tax_bps: s.parking_tax_bps || 0,
     });
   } catch (err) {
     next(err);
@@ -327,6 +373,32 @@ router.post(
       if (!session) return res.status(404).json({ error: 'Not found' });
       if (session.disposition !== 'active') {
         return res.status(422).json({ error: 'This parking session can no longer be extended.' });
+      }
+
+      // A double-submit here bought the same day twice. An extension already in
+      // flight for this session, for the same duration, is the same purchase —
+      // send the guest back to the checkout they already opened.
+      const { rows: openRows } = await query(
+        `SELECT stripe_checkout_session_id
+           FROM parking_payments
+          WHERE session_id = $1 AND purpose = 'extension' AND status = 'pending'
+            AND rate_type = $2 AND quantity = $3
+            AND stripe_checkout_session_id IS NOT NULL
+            AND created_at > now() - interval '1 hour'
+          ORDER BY created_at DESC LIMIT 1`,
+        [session.id, rate_type, quantity],
+      );
+      if (openRows[0]) {
+        try {
+          const open = await getStripe().checkout.sessions.retrieve(
+            openRows[0].stripe_checkout_session_id,
+          );
+          if (open.status === 'open' && open.url) {
+            return res.status(200).json({ checkout_url: open.url });
+          }
+        } catch {
+          // Fall through rather than block a guest from adding time.
+        }
       }
 
       const { rows: payRows } = await query(

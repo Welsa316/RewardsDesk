@@ -1,6 +1,7 @@
 // Staff/admin parking API. Display status is always the shared derived SQL —
 // never recomputed ad hoc — so lists, dashboard, and the guest page agree.
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
@@ -455,10 +456,15 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
       // COMMITTED each statement takes a fresh snapshot, so a refund committed
       // by the transaction we just waited on is visible here.
       const { rows: sumRows } = await client.query(
+        // A refund Stripe has accepted but not yet settled still owes the guest
+        // that money, so it consumes the balance exactly like a settled one.
+        // Counting only 'succeeded' would let a second refund of the same
+        // amount pass the guard while the first was still in flight.
         `SELECT COALESCE(SUM(amount_cents), 0)::int AS already_refunded,
                 COALESCE(SUM(tax_cents), 0)::int     AS tax_already_refunded
            FROM parking_payments
-          WHERE refunded_payment_id = $1 AND type='refund' AND status='succeeded'`,
+          WHERE refunded_payment_id = $1 AND type='refund'
+            AND status IN ('succeeded','pending')`,
         [paymentId],
       );
       const refundable = payment.amount_cents - sumRows[0].already_refunded;
@@ -492,16 +498,40 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
           : 0;
       const refundSubtotal = amount - refundTax;
 
+      // Desk/cash money changes hands immediately; only Stripe can answer
+      // "accepted, not settled yet".
+      let refundStatusOut = 'succeeded';
+
       if (payment.method === 'stripe') {
         if (!payment.stripe_payment_intent_id) {
           return { code: 422, body: { error: 'This payment has no Stripe reference.' } };
         }
+        // One fresh key per attempt. A key derived from payment+amount+admin
+        // looked safer and was not: refunding $5 twice on the same charge
+        // reused the key, so Stripe replayed the FIRST refund, the ledger
+        // upserted the same row, and the guest was handed back $5 while the
+        // desk was told $10. Two deliberate refunds are two refunds. What
+        // stops an over-refund is the row lock plus the balance guard above;
+        // what this key stops is the SDK's own network retry paying twice.
         const refund = await getStripe().refunds.create(
           { payment_intent: payment.stripe_payment_intent_id, amount },
-          // Retrying this exact refund (double-submit, proxy retry) returns the
-          // original refund instead of moving money twice.
-          { idempotencyKey: `rfnd-${paymentId}-${amount}-${req.user.id}` },
+          { idempotencyKey: `rfnd-${randomUUID()}` },
         );
+
+        // Stripe can answer 'pending' (and, for some methods, 'failed'). Storing
+        // 'succeeded' regardless books money back that may never arrive and
+        // mails the guest a refund notice for it.
+        const refundStatus =
+          refund.status === 'succeeded' || refund.status === 'failed' || refund.status === 'canceled'
+            ? refund.status
+            : 'pending';
+        refundStatusOut = refundStatus;
+        if (refundStatus === 'failed' || refundStatus === 'canceled') {
+          return {
+            code: 502,
+            body: { error: `Stripe could not complete this refund (${refund.status}). Nothing was returned.` },
+          };
+        }
         // The charge.refunded webhook may race us — same stripe_refund_id either
         // way, so exactly one audit row survives, annotated with the actor.
         await client.query(
@@ -509,13 +539,13 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
              (session_id, type, purpose, method, amount_cents, subtotal_cents, tax_cents,
               status, stripe_refund_id,
               stripe_payment_intent_id, refunded_payment_id, created_by, note)
-           VALUES ($1,'refund','refund','stripe',$2,$3,$4,'succeeded',$5,$6,$7,$8,$9)
+           VALUES ($1,'refund','refund','stripe',$2,$3,$4,$10,$5,$6,$7,$8,$9)
            ON CONFLICT (stripe_refund_id) DO UPDATE
              SET created_by = EXCLUDED.created_by, note = EXCLUDED.note,
                  refunded_payment_id = EXCLUDED.refunded_payment_id, updated_at = now()`,
           [
             id, amount, refundSubtotal, refundTax, refund.id,
-            payment.stripe_payment_intent_id, paymentId, req.user.id, reason,
+            payment.stripe_payment_intent_id, paymentId, req.user.id, reason, refundStatus,
           ],
         );
       } else {
@@ -528,7 +558,15 @@ router.post('/sessions/:id/refund', requireAdmin, async (req, res, next) => {
           [id, payment.method, amount, refundSubtotal, refundTax, paymentId, req.user.id, reason],
         );
       }
-      return { code: 201, body: { ok: true, refunded_cents: amount, method: payment.method } };
+      return {
+        code: 201,
+        body: {
+          ok: true,
+          refunded_cents: amount,
+          method: payment.method,
+          status: payment.method === 'stripe' ? refundStatusOut : 'succeeded',
+        },
+      };
     });
 
     res.status(result.code).json(result.body);

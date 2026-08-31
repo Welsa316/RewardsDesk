@@ -6,7 +6,10 @@ import { parking } from '../api';
 import { formatMoney } from '../utils/format';
 import { US_STATES, DEFAULT_STATE } from '../utils/states';
 
-const props = defineProps({ rates: { type: Object, default: null } });
+const props = defineProps({
+  rates: { type: Object, default: null },
+  taxBps: { type: Number, default: 0 },
+});
 const emit = defineEmits(['close', 'created']);
 
 const kind = ref('desk'); // 'desk' | 'comp'
@@ -26,10 +29,17 @@ const submitting = ref(false);
 const formError = ref('');
 const fieldErrors = reactive({});
 
-const totalCents = computed(() => {
-  if (!props.rates) return 0;
-  return duration.value.quantity * props.rates.daily_cents;
+// Must match what the server records, which is priceBreakdown(...).total —
+// subtotal PLUS tax. Quoting the subtotal here meant the agent collected the
+// pre-tax amount while the ledger showed the tax-inclusive one.
+const subtotalCents = computed(() =>
+  props.rates ? duration.value.quantity * props.rates.daily_cents : 0,
+);
+const taxCents = computed(() => {
+  const bps = Number(props.taxBps) || 0;
+  return bps > 0 ? Math.round((subtotalCents.value * bps) / 10000) : 0;
 });
+const totalCents = computed(() => subtotalCents.value + taxCents.value);
 
 async function submit() {
   formError.value = '';
@@ -143,7 +153,7 @@ async function submit() {
 
       <div v-if="rates">
         <p class="label">Duration</p>
-        <DurationPicker v-model="duration" :rates="rates" />
+        <DurationPicker v-model="duration" :rates="rates" :tax-bps="taxBps" />
       </div>
       <p v-else class="rounded-xl border border-sand bg-warm/40 px-4 py-3 text-sm text-slate-warm">
         Rates unavailable — try reopening this dialog.
@@ -160,6 +170,9 @@ async function submit() {
         </div>
         <p class="rounded-xl border border-sand bg-warm/40 px-4 py-3 text-sm text-ink">
           Collect <span class="font-semibold">{{ formatMoney(totalCents) }}</span> at the desk.
+          <span v-if="taxCents > 0" class="text-slate-warm">
+            ({{ formatMoney(subtotalCents) }} + {{ formatMoney(taxCents) }} tax)
+          </span>
         </p>
       </template>
 

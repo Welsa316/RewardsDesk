@@ -13,6 +13,7 @@ import { formatPlate } from '../utils/states';
 const props = defineProps({
   sessionId: { type: Number, required: true },
   rates: { type: Object, default: null },
+  taxBps: { type: Number, default: 0 },
 });
 const emit = defineEmits(['close', 'changed']);
 
@@ -26,6 +27,18 @@ const busy = ref(false);
 // Extend
 const extendOpen = ref(false);
 const extendDuration = ref({ rate_type: 'daily', quantity: 1 });
+
+// The extension is recorded at the tax-inclusive total, so that is what the
+// agent has to take. This panel previously showed no total at all — cash was
+// collected for a number the screen never displayed.
+const extendSubtotalCents = computed(() =>
+  props.rates ? extendDuration.value.quantity * props.rates.daily_cents : 0,
+);
+const extendTaxCents = computed(() => {
+  const bps = Number(props.taxBps) || 0;
+  return bps > 0 ? Math.round((extendSubtotalCents.value * bps) / 10000) : 0;
+});
+const extendTotalCents = computed(() => extendSubtotalCents.value + extendTaxCents.value);
 const extendMethod = ref('cash');
 
 // Notes
@@ -269,7 +282,7 @@ function refundableCents(payment) {
 
       <div v-if="extendOpen" class="rounded-xl border border-sand bg-warm/40 p-4">
         <p class="label">Add time</p>
-        <DurationPicker v-if="rates" v-model="extendDuration" :rates="rates" />
+        <DurationPicker v-if="rates" v-model="extendDuration" :rates="rates" :tax-bps="taxBps" />
         <p v-else class="text-sm text-slate-warm">Rates unavailable.</p>
         <label class="label mt-3" for="ext_method">Paid by</label>
         <select id="ext_method" v-model="extendMethod" class="input">
@@ -277,6 +290,12 @@ function refundableCents(payment) {
           <option value="card_terminal">Card terminal</option>
           <option value="comp">Complimentary</option>
         </select>
+        <p v-if="rates && extendMethod !== 'comp'" class="mt-3 rounded-xl border border-sand bg-white px-4 py-3 text-sm text-ink">
+          Collect <span class="font-semibold">{{ formatMoney(extendTotalCents) }}</span> at the desk.
+          <span v-if="extendTaxCents > 0" class="text-slate-warm">
+            ({{ formatMoney(extendSubtotalCents) }} + {{ formatMoney(extendTaxCents) }} tax)
+          </span>
+        </p>
         <button class="btn btn-primary mt-3 w-full" :disabled="busy || !rates" @click="submitExtend">
           {{ busy ? 'Saving…' : 'Confirm extension' }}
         </button>
