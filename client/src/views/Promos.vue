@@ -17,7 +17,7 @@ const fieldErrors = reactive({});
 const PAGES = [
   { value: 'home', label: 'Home page' },
   { value: 'enroll', label: 'Rewards enrollment' },
-  { value: 'park', label: 'Parking payment page' },
+  { value: 'park', label: 'Parking status page' },
 ];
 
 const form = reactive({ title: '', image_url: '', start_date: '', end_date: '', link_to: 'none', show_on: ['home', 'enroll'] });
@@ -133,7 +133,7 @@ function fmt(d) {
       <div>
         <h1 class="font-serif text-2xl text-ink">Promo images</h1>
         <p class="text-sm text-slate-warm">
-          Shown on the public home page and above the parking payment form while active.
+          Shown on the public home page and on a guest's parking status page while active.
         </p>
       </div>
       <button class="btn btn-primary !py-2.5" @click="openNew">Add promo</button>
@@ -251,8 +251,9 @@ function fmt(d) {
           </div>
           <p v-if="fieldErrors.show_on" class="field-error">{{ fieldErrors.show_on }}</p>
           <p class="mt-1 text-xs text-slate-warm">
-            The parking payment page is off by default — most promos are rewards offers, and someone
-            part-way through paying should not be advertised at.
+            The parking status page is off by default. Most promos are rewards offers, and it is the
+            page a guest sees after they have paid — the payment form itself is deliberately left
+            clear, because someone part-way through paying should not be advertised at.
           </p>
         </fieldset>
 

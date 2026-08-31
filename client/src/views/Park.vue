@@ -9,6 +9,7 @@ import ShuttleNotice from '../components/ShuttleNotice.vue';
 import { formatMoney } from '../utils/format';
 import { US_STATES, DEFAULT_STATE } from '../utils/states';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
+import PublicFooter from '../components/PublicFooter.vue';
 
 const route = useRoute();
 
@@ -336,6 +337,10 @@ async function submit() {
       </form>
 
       <ShuttleNotice compact />
+
+      <!-- White-label: policy links, no chain disclaimer. This is the page that
+           takes a card, so Terms and Privacy have to be reachable from it. -->
+      <PublicFooter white-label />
     </div>
   </div>
 </template>

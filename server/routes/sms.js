@@ -64,6 +64,12 @@ router.post('/sms/twilio', requireTwilioSignature, smsInboundPerMinute, async (r
 
     const base = publicBaseUrl();
 
+    // Every outbound reply carries this. The consent language Twilio verified
+    // us against promises it on the message a request produces, so a reply
+    // without it is a compliance gap, not a style choice — and the returning
+    // guest reply and the error fallback below were both missing it.
+    const OPT_OUT = '\nReply STOP to opt out, HELP for help.';
+
     // If this number already has a car on the lot, send them back to it rather
     // than to a blank form — that is how a guest recovers a lost link, and it
     // stops them paying twice for the same vehicle.
@@ -72,7 +78,8 @@ router.post('/sms/twilio', requireTwilioSignature, smsInboundPerMinute, async (r
       return res.type('text/xml').send(
         twimlMessage(
           `${existing.plate} is already parked, paid through ${existing.paidThrough}. ` +
-            `Check your time or add more: ${base}/park/s/${existing.status_token}`,
+            `Check your time or add more: ${base}/park/s/${existing.status_token}` +
+            OPT_OUT,
         ),
       );
     }
@@ -81,14 +88,19 @@ router.post('/sms/twilio', requireTwilioSignature, smsInboundPerMinute, async (r
     // Being strict about the keyword only helps someone who typed it wrong.
     const link = from ? `${base}/park?phone=${encodeURIComponent(from)}` : `${base}/park`;
     return res.type('text/xml').send(
-      twimlMessage(`Pay for parking here: ${link}\nReply STOP to opt out, HELP for help.`),
+      twimlMessage(`Pay for parking here: ${link}${OPT_OUT}`),
     );
   } catch (err) {
     console.error('sms webhook failed:', err?.message || err);
     // Still a useful reply: the generic link always works.
     return res
       .type('text/xml')
-      .send(twimlMessage(`Pay for parking here: ${publicBaseUrl()}/park`));
+      .send(
+        twimlMessage(
+          `Pay for parking here: ${publicBaseUrl()}/park` +
+            '\nReply STOP to opt out, HELP for help.',
+        ),
+      );
   }
 });
 

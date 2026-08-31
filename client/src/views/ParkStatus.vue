@@ -10,6 +10,7 @@ import DurationPicker from '../components/DurationPicker.vue';
 import { formatMoney, formatDateTime, formatCountdown } from '../utils/format';
 import { formatPlate } from '../utils/states';
 import { applyParkingChrome, restoreChrome, parkingTitle } from '../utils/whitelabel';
+import PublicFooter from '../components/PublicFooter.vue';
 
 const route = useRoute();
 const token = route.params.token;
@@ -321,6 +322,8 @@ async function submitExtend() {
           </p>
         </div>
       </template>
+
+      <PublicFooter white-label />
     </div>
   </div>
 </template>

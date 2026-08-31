@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { intake } from '../api';
 import PromoStrip from '../components/PromoStrip.vue';
 import AddressFields from '../components/AddressFields.vue';
+import PublicFooter from '../components/PublicFooter.vue';
 
 const route = useRoute();
 
@@ -256,6 +257,8 @@ async function submit() {
             We use these details only to set up your rewards account at the desk.
           </p>
         </form>
+
+        <PublicFooter />
       </div>
     </div>
   </div>
