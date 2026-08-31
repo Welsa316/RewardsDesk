@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { buildListQuery } from '../lib/enrollmentFilters.js';
 import { hotelTimezone } from '../lib/settings.js';
+import { csvCell } from '../lib/csv.js';
 
 const router = Router();
 // Bulk PII export is owner-level per the spec (admin: "export CSV") — staff
@@ -39,12 +40,6 @@ const COLUMNS = [
   ['notes', 'Notes'],
 ];
 
-function csvCell(v) {
-  if (v === null || v === undefined) return '';
-  if (v instanceof Date) return v.toISOString();
-  const s = String(v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 // GET /api/export — CSV of all records matching the current list filters.
 router.get('/', async (req, res, next) => {

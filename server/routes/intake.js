@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { query } from '../db/index.js';
-import { intakePerMinute, intakePerHour } from '../middleware/rateLimit.js';
+import { intakePerMinute, intakePerHour, intakePerHourPerIp } from '../middleware/rateLimit.js';
 import { validateIntake } from '../middleware/validate.js';
 import {
   sendEnrollmentConfirmation,
@@ -12,7 +12,7 @@ import { publicBaseUrl } from '../lib/stripe.js';
 const router = Router();
 
 // Public guest submission. Lands as a 'pending' enrollment for the front desk.
-router.post('/intake', intakePerMinute, intakePerHour, validateIntake, async (req, res, next) => {
+router.post('/intake', intakePerMinute, intakePerHourPerIp, intakePerHour, validateIntake, async (req, res, next) => {
   try {
     const d = req.cleanIntake;
     const { rows: created } = await query(

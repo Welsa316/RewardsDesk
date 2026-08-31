@@ -5,23 +5,32 @@ const common = {
   legacyHeaders: false,
 };
 
-// Every guest on the property's wifi shares one egress IP, so an hourly cap
-// keyed on IP throttles the hotel rather than an abuser — the 21st car of the
-// hour was refused having never tried, and told it was "too many attempts from
-// this network". The hourly windows are keyed on something specific to the
-// guest instead (their own plate or phone); IP stays as the fallback for a
-// request that carries neither, and the short burst windows stay on IP because
-// a per-minute ceiling is about hammering, not volume.
+// Normalising to a /64 keeps a single IPv6 client from getting a fresh bucket
+// per address.
+function ipKey(req) {
+  const ip = req.ip || '';
+  return ip.includes(':') ? ip.split(':').slice(0, 4).join(':') : ip;
+}
+
+// Every guest on the property's wifi shares one egress IP, so a tight hourly
+// cap keyed on IP throttles the hotel rather than an abuser — the 21st car of
+// the hour was refused having never tried. So the tight hourly window is keyed
+// on something specific to the guest (their own plate or phone).
+//
+// That key alone is not a cap, though: it comes out of the request body, so a
+// caller who varies the field gets a brand-new bucket every time and the
+// hourly window stops existing. That is how an unauthenticated caller could
+// drive ~28k enrollment emails a day out of our verified sending domain. Each
+// identifier-keyed window is now paired with a loose per-IP window (see
+// *PerHourPerIp below): generous enough that a whole property behind one NAT
+// never notices, tight enough that a single host cannot sit on the endpoint.
 function guestKey(...fields) {
   return (req) => {
     for (const f of fields) {
       const v = req.body?.[f];
       if (typeof v === 'string' && v.trim()) return `${f}:${v.trim().toLowerCase()}`;
     }
-    // Normalising to a /64 keeps a single IPv6 client from getting a fresh
-    // bucket per address.
-    const ip = req.ip || '';
-    return ip.includes(':') ? ip.split(':').slice(0, 4).join(':') : ip;
+    return ipKey(req);
   };
 }
 
@@ -39,6 +48,18 @@ export const intakePerHour = rateLimit({
   max: 5,
   keyGenerator: guestKey('email', 'phone'),
   message: { error: "You've already submitted this a few times — see the front desk and we'll finish it there." },
+});
+
+// The volume ceiling the identifier-keyed window above cannot enforce, because
+// the caller chooses that identifier. Sized for a busy property behind one NAT,
+// not for a single guest. (A CAPTCHA is the real answer to a determined
+// distributed abuser; this closes the single-host case.)
+export const intakePerHourPerIp = rateLimit({
+  ...common,
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  keyGenerator: ipKey,
+  message: { error: 'Too many submissions from this network. Please see the front desk.' },
 });
 
 // Modest brute-force guard on login.
@@ -62,6 +83,27 @@ export const parkingCheckoutPerHour = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 8, // per car/phone — plenty for a genuine guest paying and extending
   keyGenerator: guestKey('plate', 'phone'),
+  message: { error: "That's several payment attempts for this vehicle — please see the front desk." },
+});
+
+export const parkingCheckoutPerHourPerIp = rateLimit({
+  ...common,
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  keyGenerator: ipKey,
+  message: { error: 'Too many payment attempts from this network. Please see the front desk.' },
+});
+
+// The extend body carries only a duration — no plate, no phone — so
+// guestKey() found nothing and fell through to the IP. That put the whole
+// property's wifi in one bucket of 8/hour: the ninth guest of the hour adding
+// time to their own parking was told it was "several payment attempts for this
+// vehicle", having made none. The token in the URL is the per-guest key here.
+export const parkingExtendPerHour = rateLimit({
+  ...common,
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  keyGenerator: (req) => `ext:${req.params?.token || ipKey(req)}`,
   message: { error: "That's several payment attempts for this vehicle — please see the front desk." },
 });
 

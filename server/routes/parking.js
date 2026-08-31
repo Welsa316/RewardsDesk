@@ -2,6 +2,7 @@
 // never recomputed ad hoc — so lists, dashboard, and the guest page agree.
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
+import { csvCell, csvMoney } from '../lib/csv.js';
 import { query, withTransaction } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/requireAdmin.js';
@@ -760,25 +761,6 @@ const EXPORT_COLUMNS = [
   ['created_at', 'Created'],
 ];
 
-// The owner opens this in Excel, so money is dollars and timestamps are local
-// calendar time — not raw cents and UTC ISO strings.
-function csvCell(v, tz) {
-  if (v === null || v === undefined) return '';
-  if (v instanceof Date) {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(v).reduce((a, p) => ((a[p.type] = p.value), a), {});
-    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
-  }
-  const s = String(v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function csvMoney(cents) {
-  if (cents === null || cents === undefined) return '';
-  return (Number(cents) / 100).toFixed(2);
-}
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

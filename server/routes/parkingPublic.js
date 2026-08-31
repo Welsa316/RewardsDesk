@@ -14,6 +14,8 @@ import { validateParking } from '../middleware/validateParking.js';
 import {
   parkingCheckoutPerMinute,
   parkingCheckoutPerHour,
+  parkingCheckoutPerHourPerIp,
+  parkingExtendPerHour,
   parkingStatusLimiter,
 } from '../middleware/rateLimit.js';
 
@@ -106,6 +108,7 @@ async function insertSession(client, data, values) {
 router.post(
   '/parking/checkout',
   parkingCheckoutPerMinute,
+  parkingCheckoutPerHourPerIp,
   parkingCheckoutPerHour,
   validateParking,
   async (req, res, next) => {
@@ -348,7 +351,8 @@ router.get('/parking/session/:token', parkingStatusLimiter, async (req, res, nex
 router.post(
   '/parking/session/:token/extend',
   parkingCheckoutPerMinute,
-  parkingCheckoutPerHour,
+  parkingCheckoutPerHourPerIp,
+  parkingExtendPerHour,
   async (req, res, next) => {
     try {
       const token = req.params.token;
